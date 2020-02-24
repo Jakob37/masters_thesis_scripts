@@ -9,186 +9,167 @@
 #
 
 
-# CLEAR ENVIRONMENT ------------------------------------------------------------------------------------------------------------------------
+# CLEAR ENVIRONMENT ----------------------------------------------
 
 rm(list=ls())
 while (dev.cur()>1) dev.off()
 
 
-# DOWNLOAD GENERAL PACKAGES ----------------------------------------------------------------------------------------------------------------
+# LOAD GENERAL PACKAGES ------------------------------------------
 
 library(tidyverse)
-
-
-# SOURCE THE CONFIG FILE --------------------------------------------------------------------------------------------------------------------
-
 library(yaml)
-setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
-# this changes for every data set
-config <- yaml.load_file("config_alltcga.yml")
-#config <- yaml.load_file("config_brca_scanb.yml")
-#config <- yaml.load_file("config_brca_gobo.yml")
 
 
-# LOAD INPUT DATA ----------------------------------------------------------------------------------------------------------------------------
 
-setwd(config$input_file_paths$directory)
+# INPUT DATA FROM data_input.R  ----------------------------------
 
-# load and rename files to general names that other functions will use
-# THREE SEPARATE .RData
-loadRData <- function(fileName){
-  #loads an RData file, and returns it
-  load(fileName)
-  get(ls()[ls() != "fileName"])
-}
-gene_table <- loadRData(config$input_file_paths$gene_table)
-gex_matrix <- loadRData(config$input_file_paths$gex_matrix)
-patient_annotation <- loadRData(config$input_file_paths$patient_annotation)
+file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 
-# ONE .rds
-library(Biobase)
-gene_table <- fData(readRDS(config$input_file_paths$rds))
-gex_matrix <- exprs(readRDS(config$input_file_paths$rds))
-patient_annotation <- pData(readRDS(config$input_file_paths$rds))
+# don't source or it crashes...
+# (1) PATIENT ANNOTATION # only for TCGA
+# (1A) ONLY PATIENT IDS FROM ANNOTATION
+# (2) GENE TABLE INFORMATION
+# (3) GEX
 
 
-# DATA PREP ------------------------------------------------------------------------------------------------------------------------------------
 
-# Create a gene list from the reporter ids present in the gex_matrix
-# extract reporter names from gene expression matrix
-reporters <- row.names(gex_matrix)
-# create empty gene list
-gene_symbols <- vector("list", length(reporters))
-# iterate through reporter list
-for (i in 1:length(reporters)) {
-  # if reporter is not present in gene_table, just keep the reporter (so code won't break)
-  if (!reporters[i] %in% gene_table[[config$gene_table_info$reporter_column_name]]) {
-    gene_symbols[i] <- reporters[i]
-  } else {
-    # if it's there, save the gene symbol to the new list
-    gene_symbols[i] <- gene_table[gene_table[[config$gene_table_info$reporter_column_name]] == reporters[i],][[config$gene_table_info$gene_symbol_column_name]]
-  }
-}
-rm(reporters)
-
-# Replace VEGFD for FIGF
-gene_symbols <- rapply(gene_symbols, function(x) ifelse(x=="VEGFD","FIGF",x), how="replace")
-  
-# Rename gex_matrix rows with gene symbols instead of reporter ids
-row.names(gex_matrix) <- gene_symbols
-
-
-# CLAMS -----------------------------------------------------------------------------------------------------------------------------------------
-
-# INITIATE A BLANK TABLE FOR FOR PAN-CANCER SUMMARY
-
-table_for_summary <- tibble(cancer_type = factor(),
-                            dataset = character(),
-                            total_samples = numeric(),
-                            clams_class = factor(),
-                            clams_number_samples = numeric(),
-                            sample_percent = numeric())
-
-# SUBSET DATA INTO CANCER TYPES AND RUN CLAMS ON ALL
-
-######### FOR breast_SCAN_B
-patient_annotation <- patient_annotation[, !duplicated(colnames(patient_annotation))]
-######### END
-
-patient_annotation <- mutate(patient_annotation, clams_class = "not classified")
-patient_annotation$clams_class <- factor(patient_annotation$clams_class)
-
-######### FOR es_pancan_all_TP.rds
-cancer_types <- levels(factor(patient_annotation$cancer.type))
-######### END
-
-
-# CLAMS
+# CLAMS ANALYSIS  -----------------------------------
 
 library(CLAMS)
 library(e1071)
 
-# FOR PAN CANCER DATASETS
-for (tcga_cancer_type in cancer_types) {
+
+# GOBO
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_brca_gobo.yml")
+
+# Create a gene symbol list from the reporter ids present in the gex_matrix  
+gene_symbols_gobo <- gex_matrix_gobo[,1:2]
+gene_symbols_gobo <- rownames_to_column(data.frame(gene_symbols_gobo), var = "reporterId")
+gene_symbols_gobo <- left_join(gene_symbols_gobo, gene_table_gobo[,c("reporterId","geneSymbol")])
+gene_symbols_gobo <- gene_symbols_gobo$geneSymbol
+
+rm(gene_table_gobo)
+
+# Rename gex_matrix rows with gene symbols instead of reporter ids
+row.names(gex_matrix_gobo) <- gene_symbols_gobo
+
+# run CLAMS predictor
+clams_result_gobo <- applyCLAMS(gex_matrix_gobo, gene_symbols_gobo)
+# extract the classification result from CLAMS
+clams.class <- clams_result_gobo$cl[,]
+clams.class <- data.frame(as.list(clams.class))
+clams.class <- t(clams.class)
+clams.class <- rownames_to_column(data.frame(clams.class), var = "sample.id")
+
+clams_class_gobo <- inner_join(patient_ids_all_datasets, clams.class, by="sample.id")
+
+rm(gex_matrix_gobo)
+rm(gene_symbols_gobo)
+
+
+
+# SCAN-B
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_brca_scanb.yml")
+
+# Create a gene symbol list from gex_matrix
+gene_symbols_scanb <- gex_matrix_scanb[,1:2]
+gene_symbols_scanb <- rownames_to_column(data.frame(gex_matrix_scanb), var = "geneSymbol")
+gene_symbols_scanb <- gene_symbols_scanb$geneSymbol
+
+# run CLAMS predictor
+clams_result_scanb <- applyCLAMS(gex_matrix_scanb, gene_symbols_scanb)
+# extract the classification result from CLAMS
+clams.class <- clams_result_scanb$cl[,]
+clams.class <- data.frame(as.list(clams.class))
+clams.class <- t(clams.class)
+clams.class <- rownames_to_column(data.frame(clams.class), var = "sample.id")
+
+clams_class_scanb <- inner_join(patient_ids_all_datasets, clams.class, by="sample.id")
+
+rm(gex_matrix_scanb)
+rm(gene_symbols_scanb)
+
+
+# TCGA
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_alltcga.yml")
+
+# Create a gene symbol list from the reporter ids present in the gex_matrix  
+gene_symbols_tcga <- gex_matrix_tcga[,1:2]
+gene_symbols_tcga <- rownames_to_column(data.frame(gene_symbols_tcga), var = "reporterId")
+gene_symbols_tcga <- left_join(gene_symbols_tcga, gene_table_tcga[,c("ENSG", "SYMBOL")], by=c("reporterId" = "ENSG"))
+gene_symbols_tcga <- gene_symbols_tcga$SYMBOL
+
+rm(gene_table_tcga)
+
+# Replace VEGFD for FIGF
+gene_symbols_tcga <- as.list(gene_symbols_tcga)
+gene_symbols_tcga <- rapply(gene_symbols_tcga, function(x) ifelse(x=="VEGFD","FIGF",x), how="replace")
+
+# Rename gex_matrix rows with gene symbols instead of reporter ids
+row.names(gex_matrix_tcga) <- gene_symbols_tcga
+
+rm(gene_symbols_tcga)
+
+# run CLAMS predictor for subsets of each cancer type
+cancer_types <- levels(factor(patient_annotation_tcga$cancer.type))
+for (cancer_type in cancer_types) {
   
   # Subset data according to cancer type
-  print(tcga_cancer_type)
-  type_list <- paste0(tcga_cancer_type, '_matrix')
-  sample_list <- subset(patient_annotation, cancer.type == tcga_cancer_type) %>% pull(sample_id)
-  col_num <- which(colnames(gex_matrix) %in% sample_list)
-  new_gex_matrix <- gex_matrix[,c(col_num)]
+  print(cancer_type)
+  sample_list <- subset(patient_annotation_tcga, cancer.type == cancer_type) %>% pull(sample_id)
+  col_num <- which(colnames(gex_matrix_tcga) %in% sample_list)
+  new_gex_matrix <- gex_matrix_tcga[,c(col_num)]
   gene_symbols <- row.names(new_gex_matrix)
   
   # run CLAMS predictor
   clams_result <- applyCLAMS(new_gex_matrix, gene_symbols)
   # extract the classification result from CLAMS
-  classification <- clams_result$cl[,]
-  bronchioid <- names(classification[classification == "bronchioid"])
-  print(c("bronchioid", length(bronchioid)))
-  nonbronchioid <- names(classification[classification == "nonbronchioid"])
-  print(c("nonbronchioid", length(nonbronchioid)))
+  clams.class <- clams_result$cl[,]
   
-  # add column to patient annotation table with clams classification
-  patient_annotation <- mutate(patient_annotation, clams_class = 
-                                 ifelse( get(config$patient_annotation_info$sample_column_name) %in% bronchioid, "TRU", 
-                                         ifelse( get(config$patient_annotation_info$sample_column_name) %in% nonbronchioid, "NonTRU", clams_class)))
+  clams.class <- data.frame(as.list(clams.class))
+  clams.class <- t(clams.class)
+  clams.class <- rownames_to_column(data.frame(clams.class), var = "sample.id")
   
-  # save information for summary
-  table_for_summary <- add_row(table_for_summary, cancer_type = tcga_cancer_type,
-                               dataset = config$dataset,
-                               total_samples = length(sample_list),
-                               clams_class = "NonTRU",
-                               clams_number_samples = length(nonbronchioid),
-                               sample_percent = 100 * clams_number_samples / length(sample_list))
-  table_for_summary <- add_row(table_for_summary, cancer_type = tcga_cancer_type,
-                               dataset = config$dataset,
-                               total_samples = length(sample_list),
-                               clams_class = "TRU",
-                               clams_number_samples = length(bronchioid),
-                               sample_percent = 100 * clams_number_samples / length(sample_list))
+  if (exists("clams_class_tcga")) {
+    clams_class_tcga <- bind_rows(clams_class_tcga, clams.class) } else {
+      clams_class_tcga <- clams.class
+    }
+  
+  rm(new_gex_matrix)
 }
 
-table(patient_annotation$clams_class)
-write.csv(table_for_summary, "data_for_summary.csv", row.names=FALSE)
+clams_class_tcga <- inner_join(patient_ids_all_datasets, clams_class_tcga, by="sample.id")
 
-# FOR JUST ONE CANCER TYPE IN THE DATASET
-# run CLAMS predictor
-clams_result <- applyCLAMS(gex_matrix, gene_symbols)
-# extract the classification result from CLAMS
-classification <- clams_result$cl[,]
-bronchioid <- names(classification[classification == "bronchioid"])
-print(c("bronchioid", length(bronchioid)))
-nonbronchioid <- names(classification[classification == "nonbronchioid"])
-print(c("nonbronchioid", length(nonbronchioid)))
-
-# add column to patient annotation table with clams classification
-patient_annotation <- mutate(patient_annotation, clams_class = 
-                               ifelse( get(config$patient_annotation_info$sample_column_name) %in% bronchioid, "TRU", 
-                                       ifelse( get(config$patient_annotation_info$sample_column_name) %in% nonbronchioid, "NonTRU", clams_class)))
-
-# save information for summary
-sample_list <- patient_annotation %>% pull(config$patient_annotation_info$sample_column_name)
-table_for_summary <- add_row(table_for_summary, cancer_type = config$cancer_type,
-                             dataset = config$dataset,
-                             total_samples = length(sample_list),
-                             clams_class = "NonTRU",
-                             clams_number_samples = length(nonbronchioid),
-                             sample_percent = 100 * clams_number_samples / length(sample_list))
-table_for_summary <- add_row(table_for_summary, cancer_type = config$cancer_type,
-                             dataset = config$dataset,
-                             total_samples = length(sample_list),
-                             clams_class = "TRU",
-                             clams_number_samples = length(bronchioid),
-                             sample_percent = 100 * clams_number_samples / length(sample_list))
+rm(patient_annotation_tcga)
+rm(gex_matrix_tcga)
 
 
-table(patient_annotation$clams_class)
-write.csv(table_for_summary, "data_for_summary.csv", row.names=FALSE)
+# combine all datasets
+patient_annotation_clams <- bind_rows(clams_class_gobo, clams_class_scanb, clams_class_tcga)
+# transmute bronchioid to TRU and nonbronchioid to NonTRU
+patient_annotation_clams <- patient_annotation_clams %>% 
+                              mutate(clams.class = case_when(clams.class == "bronchioid" ~ "TRU",
+                                     clams.class == "nonbronchioid" ~ "NonTRU",
+                                     TRUE ~ clams.class))
+patient_annotation_clams$clams.class <- factor(patient_annotation_clams$clams.class, levels=c("TRU", "NonTRU"))
 
-# SAVE FOR OTHER ANALYSIS ---------------------------------------------------------------------------------------------------------------
 
-saveRDS(patient_annotation, file="patient_clams.rds")
-saveRDS(gex_matrix, file="matrix_clams.rds")
+# RESULT
+# Save final table
+write.csv(patient_annotation_clams, "/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv", row.names=FALSE)
+
+
+  
+# CHANGE FROM HERE ------------------
+
+
 
 # GENERAL VISUALIZATION OF PATIENT ANNOTATION INFORMATION BY CLAMS CLASS (ONE TYPE IN DATASET) --------------------------------------------------
 
