@@ -126,7 +126,7 @@ rm(config)
 
 # CLAMS RESULTS  ----------------------------------------------------
 
-patient_annotation_clams <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/0_clams/all_tcga/clams_all_samples.csv")
+patient_annotation_clams <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv")
 
 
 
