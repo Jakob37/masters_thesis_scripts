@@ -1,0 +1,52 @@
+##########################
+#
+# CONFIG FILE FOR breast_GOBO
+#
+##########################
+
+cancer_type: "BRCA-G"
+dataset: "GOBO"
+overall_survival_name: "BRCA - GOBO"
+
+input_file_paths:
+  directory: "/media/deboraholi/Data/LUND/9 THESIS/data/breast_GOBO/"
+  rds: ""
+  gene_table: "hgu133a_fData.RData"
+  gex_matrix: "Superset_data_U133_na30_AffymetrixProbe.RData"
+  patient_annotation: "Superset_annotations_U133A_na30.RData"
+
+gene_table_info:
+  reporter_column_name: "reporterId"
+  gene_symbol_column_name: "geneSymbol"
+  
+patient_annotation_info:
+  sample_column_name: "SampleID"
+  overall_survival_time_column_name: "OS"
+  overall_survival_time_column_unit_table: "years"
+  overall_survival_time_column_unit_desired: "years"
+  overall_survival_event_column_name: "OSbin"
+  
+
+see_variables_by_clams:
+  barplot: ["LNstatus", "ER", "PgR", "PAM50", "Wound"]
+  histogram: ["Age", "TumSize"]
+  
+survival_analysis:
+  censor_at_timepoint: '5' # "no" or a number
+
+
+cox_regression:
+  do_univariate:
+  univariate_variables:
+  do_multivariate:
+  multivariate_variables:
+  
+
+survival_after_clams:
+  variable_category1: ["ER", "er_pos"]
+  variable_category2: ["LNstatus", "LNneg"]
+  variable_category3: ["LNstatus", "LNpos"]
+  variable_category4: ["PgR", "pgr_pos"]
+  variable_category5: ["Wound", "Quiescent"]
+  variable_category6: ["PAM50", "LumA"]
+  variable_category7: ["PAM50", "Normal-like"]

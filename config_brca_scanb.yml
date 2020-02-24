@@ -1,0 +1,51 @@
+##########################
+#
+# CONFIG FILE FOR breast_SCAN_B
+#
+##########################
+
+cancer_type: "BRCA-S"
+dataset: "SCAN B"
+overall_survival_name: "BRCA - SCAN B"
+
+input_file_paths:
+  directory: "/media/deboraholi/Data/LUND/9 THESIS/data/breast_SCAN_B/"
+  rds: ""
+  gene_table: "genematrix_data_NMrefSeq_fData.RData"
+  gex_matrix: "genematrix_data_NMrefSeq.RData"
+  patient_annotation: "FUv7_RNAseq_SCANB_data.RData"
+
+gene_table_info:
+  reporter_column_name: "reporterId"
+  gene_symbol_column_name: "geneSymbol"
+  
+patient_annotation_info:
+  sample_column_name: "rba"
+  overall_survival_time_column_name: "OS"
+  overall_survival_time_column_unit_table: "years"
+  overall_survival_time_column_unit_desired: "years"
+  overall_survival_event_column_name: "OSbin"
+  
+
+see_variables_by_clams:
+  barplot: ["CaseLaterality", "HER2status", "LNstatus", "ERstatus", "PRstatus"]
+  histogram: ["ExactAge"]
+  
+survival_analysis:
+  censor_at_timepoint: '5' 
+
+
+cox_regression:
+  do_univariate:
+  univariate_variables:
+  do_multivariate:
+  multivariate_variables:
+  
+
+survival_after_clams:
+  variable_category1: ["HER2status", "Neg"]
+  variable_category2: ["LNstatus", "NodeNegative"]
+  variable_category3: ["LNstatus", "NodePositive"]
+  variable_category4: ["ERstatus", "Pos"]
+  variable_category5: ["PRstatus", "Neg"]
+  variable_category6: ["PRstatus", "Pos"]
