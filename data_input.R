@@ -48,19 +48,21 @@ setwd(config$input_file_paths$directory)
 patient_annotation_tcga <- pData(readRDS(config$input_file_paths$rds))
 
 
-# to create a table with only ids for all datasets
+# to create a table with ids, dataset and cancer type for all datasets
 # GOBO
 patient_annotation_gobo <- patient_annotation_gobo["SampleID"]
 patient_annotation_gobo <-patient_annotation_gobo %>% rename(sample.id = SampleID)
+patient_annotation_gobo$cancer.type <- "BRCA"
 patient_annotation_gobo$dataset <- "GOBO"
 
 # SCAN-B
 patient_annotation_scanb <- patient_annotation_scanb["rba"]
 patient_annotation_scanb <- patient_annotation_scanb %>% rename(sample.id = rba)
+patient_annotation_scanb$cancer.type <- "BRCA"
 patient_annotation_scanb$dataset <- "SCAN-B"
 
 # TCGA
-patient_annotation_tcga <- patient_annotation_tcga["sample_id"]
+patient_annotation_tcga <- patient_annotation_tcga[c("sample_id", "cancer.type")]
 patient_annotation_tcga <- patient_annotation_tcga %>% rename(sample.id = sample_id)
 patient_annotation_tcga$dataset <- "TCGA"
 
@@ -123,10 +125,30 @@ gex_matrix_tcga <- exprs(readRDS(config$input_file_paths$rds))
 rm(config)
 
 
+# PLOTS NAMES  ------------------------------------------------------
+
+source("/media/deboraholi/Data/LUND/9 THESIS/src/plots_names.R")
+
+
 
 # CLAMS RESULTS  ----------------------------------------------------
 
 patient_annotation_clams <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv")
+
+
+
+# PROLIFERATION ANALYSIS RESULTS  -----------------------------------
+
+# list of BLAH genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
+prolif_fred_genes_in_common <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/modules/prolif_fred_genes_in_common.txt")
+prolif_fred_genes_in_common <- prolif_fred_genes_in_common$V1
+
+# list of BLAH genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
+prolif_karl_genes_in_common <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/modules/prolif_karl_genes_in_common.txt")
+prolif_karl_genes_in_common <- prolif_karl_genes_in_common$V1
+
+# table of patient ids and proliferation values (sum of ranks) for all 3 datasets
+patient_annotation_prolif <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/prolif_all_samples.csv")
 
 
 
@@ -139,3 +161,10 @@ immune_genes_in_common <- immune_genes_in_common$V1
 # table of patient ids and immune signature values (sum of ranks) for all 3 datasets
 # sum = sum FPKM when gene symbol appears more than once, max = get the highest value when gene symbol is there more than once
 patient_annotation_immune <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/2_immune/immune_all_samples.csv")
+
+
+
+# ROR SSP  -------------------------------------------------------------
+
+# reduced version
+load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/Training_Run9564Genes_noNorm_SSP.scaled.ROR.tot.asT0.c005.Fcc15_5x5foldCV.num.rules.50_50.selRules.AIMS.GS.RData")
