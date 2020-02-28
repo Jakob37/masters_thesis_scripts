@@ -105,7 +105,7 @@ mod_immune_in_common
 rm(mod_immune)
 
 # Result
-  write.table(mod_immune_in_common, file='immune_genes_in_common.txt', quote=FALSE, row.names=FALSE, col.names=FALSE)
+write.table(mod_immune_in_common, file='immune_genes_in_common.txt', quote=FALSE, row.names=FALSE, col.names=FALSE)
 
 
 # MODULE ANALYSIS  ------------------------------------
@@ -188,18 +188,56 @@ write.csv(patient_ids_all_datasets, "immune_all_samples.csv", row.names=FALSE)
 
 # CLAMS RESULTS
 # IMMUNE ANALYSIS RESULTS
+# PLOTS NAMES
 
 patient_annotation_immune_clams <- left_join(patient_annotation_immune, patient_annotation_clams, 
                                              by=c("sample.id", "cancer.type", "dataset"))
 
 
+# COMPARE MAX AND SUM AS WAY OF REMOVING DUPLICATES  ---------------------------
+
+# GOBO
+
+gobo_subset <- patient_annotation_immune_clams %>% subset(dataset == "GOBO")
+
+# Trying to see with points
+gobo_subset %>%
+  ggplot(aes(x=immune.value.max, y=immune.value.sum, color=clams.class)) + 
+  geom_point() +
+  scale_color_manual(values=c("deepskyblue3", "darkorange1")) +
+  theme_minimal() +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50"))
+# Correlation test
+cor.test(gobo_subset$immune.value.max, gobo_subset$immune.value.sum) #0.9940132
+
+# using max is fine
+
+ggplot(gobo_subset %>% subset(clams.class == "TRU"), aes(x=immune.value.max, y=immune.value.sum, color=clams.class)) + 
+  geom_point() +
+  scale_color_manual(values=c("darkorange1")) +
+  theme_minimal() +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50"))
+ggplot(gobo_subset %>% subset(clams.class == "NonTRU"), aes(x=immune.value.max, y=immune.value.sum, color=clams.class)) + 
+  geom_point() +
+  scale_color_manual(values=c("deepskyblue3")) +
+  theme_minimal() +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50"))
+
+
 # PLOTS  ---------------------------------------------------
 
-# GET NAMES FROM FILE
-source("/media/deboraholi/Data/LUND/9 THESIS/src/plots_names.R")
+# rename desired column to be used in the plots (sum or max)
+patient_annotation_immune_clams <- patient_annotation_immune_clams %>% 
+                                      rename(immune.value = immune.value.max)
 
 # boxplot, no CLAMS separation
-patient_annotation_immune %>%
+patient_annotation_immune_clams %>%
   mutate(graph.name = paste(cancer.type, dataset, sep = '_')) %>%
   mutate(graph.name = fct_reorder(graph.name, immune.value, .fun='median')) %>%
   ggplot(aes(x=reorder(graph.name, immune.value), y=immune.value)) +
@@ -323,7 +361,10 @@ patient_annotation_fraction %>%
   scale_fill_manual(values=c("deepskyblue3", "darkorange1"), name="CLAMS") +
   labs(y = "Immune signature", x = NULL) +
   scale_x_discrete(labels = acronym_only) +
-  theme(axis.text.x = element_text(angle = 60, hjust=1)) +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        axis.text.x = element_text(angle = 60, hjust=1), 
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50")) +
   scale_y_continuous(breaks = c(1e+05, 5e+05), labels = c('Lower', 'Higher')) +
   annotate("text", x=groups.to.analyze, y=6.5e+05, label=immune_summary_tru_non$nontru, size=3, color="deepskyblue3", angle=90) +
   annotate("text", x=-0.1, y=6.5e+05, label="n =", size=3, color="deepskyblue3", hjust=0) +
