@@ -48,7 +48,7 @@ setwd(config$input_file_paths$directory)
 patient_annotation_tcga <- pData(readRDS(config$input_file_paths$rds))
 
 
-# to create a table with ids, dataset and cancer type for all datasets
+# (1A) to create a table with ids, dataset and cancer type for all datasets
 # GOBO
 patient_annotation_gobo <- patient_annotation_gobo["SampleID"]
 patient_annotation_gobo <-patient_annotation_gobo %>% rename(sample.id = SampleID)
@@ -70,6 +70,53 @@ patient_ids_all_datasets <- bind_rows(patient_annotation_tcga, patient_annotatio
 
 # write.csv(patient_ids_all_datasets, "/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_only_ids.csv", row.names=FALSE)
 
+
+# (1B) to create a table with os, dataset and cancer type for all datasets
+# GOBO
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_brca_gobo.yml")
+patient_annotation_gobo <- patient_annotation_gobo[c(config$patient_annotation_info$sample_column_name,
+                                                     config$patient_annotation_info$overall_survival_time_column_name,
+                                                     config$patient_annotation_info$overall_survival_event_column_name)]
+patient_annotation_gobo <-patient_annotation_gobo %>% rename(sample.id = config$patient_annotation_info$sample_column_name,
+                                                             OS.time = config$patient_annotation_info$overall_survival_time_column_name,
+                                                             OS.event = config$patient_annotation_info$overall_survival_event_column_name)
+patient_annotation_gobo$OS.time.type <- config$patient_annotation_info$overall_survival_time_column_unit_table
+patient_annotation_gobo$cancer.type <- "BRCA"
+patient_annotation_gobo$dataset <- "GOBO"
+
+# SCAN-B
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_brca_scanb.yml")
+patient_annotation_scanb <- patient_annotation_scanb[c(config$patient_annotation_info$sample_column_name,
+                                                     config$patient_annotation_info$overall_survival_time_column_name,
+                                                     config$patient_annotation_info$overall_survival_event_column_name)]
+patient_annotation_scanb <-patient_annotation_scanb %>% rename(sample.id = config$patient_annotation_info$sample_column_name,
+                                                             OS.time = config$patient_annotation_info$overall_survival_time_column_name,
+                                                             OS.event = config$patient_annotation_info$overall_survival_event_column_name)
+patient_annotation_scanb$OS.time.type <- config$patient_annotation_info$overall_survival_time_column_unit_table
+patient_annotation_scanb$cancer.type <- "BRCA"
+patient_annotation_scanb$dataset <- "SCAN-B"
+
+# TCGA
+setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
+config <- yaml.load_file("config_alltcga.yml")
+patient_annotation_tcga <- patient_annotation_tcga[c(config$patient_annotation_info$sample_column_name,
+                                                       config$patient_annotation_info$overall_survival_time_column_name,
+                                                       config$patient_annotation_info$overall_survival_event_column_name,
+                                                       config$patient_annotation_info$cancer_type_column)]
+patient_annotation_tcga <-patient_annotation_tcga %>% rename(sample.id = config$patient_annotation_info$sample_column_name,
+                                                               OS.time = config$patient_annotation_info$overall_survival_time_column_name,
+                                                               OS.event = config$patient_annotation_info$overall_survival_event_column_name)
+patient_annotation_tcga$OS.time.type <- config$patient_annotation_info$overall_survival_time_column_unit_table
+patient_annotation_tcga$dataset <- "TCGA"
+
+patient_ids_all_datasets <- bind_rows(patient_annotation_tcga, patient_annotation_gobo, patient_annotation_scanb)
+factor_cols <- c("OS.event", "cancer.type", "OS.time.type", "dataset")
+patient_ids_all_datasets[factor_cols] <- lapply(patient_ids_all_datasets[factor_cols], factor)
+
+# write.csv(patient_ids_all_datasets, "/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_os.csv", row.names=FALSE)
+
 rm(patient_annotation_tcga)
 rm(patient_annotation_gobo)
 rm(patient_annotation_scanb)
@@ -79,6 +126,10 @@ rm(patient_annotation_scanb)
 
 patient_ids_all_datasets <- read.csv("/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_only_ids.csv")
 
+
+# (1B) OS FROM ANNOTATION   -----------------------------------
+
+patient_os_all_datasets <- read.csv("/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_os.csv")
 
 
 # (2) GENE TABLE INFORMATION  ---------------------------------
@@ -147,7 +198,7 @@ prolif_fred_genes_in_common <- prolif_fred_genes_in_common$V1
 prolif_karl_genes_in_common <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/modules/prolif_karl_genes_in_common.txt")
 prolif_karl_genes_in_common <- prolif_karl_genes_in_common$V1
 
-# table of patient ids and proliferation values (sum of ranks) for all 3 datasets
+# table of patient ids, clams.class, proliferation values (sum of ranks) for all 3 datasets (fred+karl), karl groups
 patient_annotation_prolif <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/prolif_all_samples.csv")
 
 
