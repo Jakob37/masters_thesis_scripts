@@ -125,6 +125,7 @@ rm(patient_annotation_scanb)
 # (1A) ONLY PATIENT IDS FROM ANNOTATION   -----------------------------------
 
 patient_ids_all_datasets <- read.csv("/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_only_ids.csv")
+patient_ids_all_datasets$sample.id <- as.character(patient_ids_all_datasets$sample.id)
 
 
 # (1B) OS FROM ANNOTATION   -----------------------------------
@@ -141,7 +142,7 @@ setwd(config$input_file_paths$directory)
 gene_table_gobo <- loadRData(config$input_file_paths$gene_table)
 
 # SCAN-B
-# none
+gene_table_scanb <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/JVCs.predictors_Helena/Gene.ID.Entrez.Rdata") # from Helena (JVC.predictor)
 
 # TCGA
 setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
@@ -215,7 +216,38 @@ patient_annotation_immune <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/2_im
 
 
 
-# ROR SSP  -------------------------------------------------------------
+# FUNCTION TO RUN DIFFERENT SSPS  --------------------------------------
+
+source("/media/deboraholi/Data/LUND/9 THESIS/src/run_ssps_function.R")
+
+
+
+# ROR SSPs  -------------------------------------------------------------
 
 # reduced version
-load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/Training_Run9564Genes_noNorm_SSP.scaled.ROR.tot.asT0.c005.Fcc15_5x5foldCV.num.rules.50_50.selRules.AIMS.GS.RData")
+ror.red.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/Training_Run9564Genes_noNorm_SSP.scaled.ROR.tot.asT0.c005.Fcc15_5x5foldCV.num.rules.50_50.selRules.AIMS.GS.RData")
+
+# complete version
+ror.all.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/Training_Run19081Genes_noNorm_SSP.scaled.ROR.tot.asT0.c005.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
+
+
+
+# ROR RESULTS  ------------------------------------------------------------
+
+patient_annotation_ror <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv")
+
+
+
+# PAM50 SSPs  -------------------------------------------------------------
+
+# reduced version
+load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run9564Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_22.selRules.AIMS.GS.RData")
+
+# complete version
+load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run19081Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
+
+
+
+# PAM50 RESULTS  ------------------------------------------------------------
+
+patient_annotation_pam50 <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/pam50_all_samples.csv")
