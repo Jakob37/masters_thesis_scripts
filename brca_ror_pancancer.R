@@ -86,7 +86,7 @@ entrez_ids_scanb <- left_join(entrez_ids_scanb, gene_table_scanb[,c("Gene.Name",
 entrez_ids_scanb <- entrez_ids_scanb %>% mutate(entrezId = paste0("e",EntrezGene))
 entrez_ids_scanb <- entrez_ids_scanb$entrezId
 
-rm(gene_table_gobo)
+rm(gene_table_scanb)
 
 # Rename gex_matrix rows with entrez ids instead of gene symbols
 row.names(gex_matrix_scanb) <- entrez_ids_scanb
@@ -187,11 +187,72 @@ write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_s
 # PLOTS NAMES
 
 # compare classification between predictors
-table(patient_annotation_ror$ror.red.class, patient_annotation_ror$ror.all.class)
+table(patient_annotation_ror$ror.red.class, patient_annotation_ror$ror.all.class, useNA='ifany')
 
 # compare what is low (<40) and what is High (>60)
+ror.low <- c('c005', 'c010', 'c015', 'c020', 'c025', 'c030', 'c035', 'c040')
+ror.interm <- c('c045', 'c050', 'c055', 'c060')
+ror.high <- c('c065', 'c070', 'c075', 'c080', 'c085', 'c090', 'c095')
+patient_annotation_ror <- patient_annotation_ror %>% 
+                              mutate(ror.red.hl.class = case_when(ror.red.class %in% ror.low ~ "Low",
+                                                                  ror.red.class %in% ror.interm ~ "Intermediate",
+                                                                  ror.red.class %in% ror.high ~ "High",
+                                                                  TRUE ~ ror.red.class))
+patient_annotation_ror <- patient_annotation_ror %>% 
+                              mutate(ror.all.hl.class = case_when(ror.all.class %in% ror.low ~ "Low",
+                                                                  ror.all.class %in% ror.interm ~ "Intermediate",
+                                                                  ror.all.class %in% ror.high ~ "High",
+                                                                  TRUE ~ ror.all.class))
 
-# compare with CLAMS class
+write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv", row.names=FALSE)
+
+
+# with CLAMS classification as well
+patient_annotation_ror_clams <- left_join(patient_annotation_ror, patient_annotation_clams, 
+                                          by=c("sample.id", "cancer.type", "dataset"))
+table(patient_annotation_ror_clams$ror.red.hl.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
+table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.red.hl.class, useNA='ifany')
+table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
+
+patient_annotation_ror_clams %>%
+  ggplot(aes(x=ror.red.class, fill=clams.class)) +
+  geom_histogram(position = 'identity', stat="count") +
+  scale_fill_manual(values=c("deepskyblue3", "darkorange1")) +
+  theme_minimal() +
+  facet_wrap(~clams.class) +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        axis.text.x = element_text(angle = 60, hjust=1), legend.position = "none",
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50")) +
+  labs(y = "Number of samples", x = "ROR reduced classification")
+
+ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_reduced_clams.png", width=9.3, height=5, dpi=300)
+
+patient_annotation_ror_clams %>%
+  ggplot(aes(x=ror.all.class, fill=clams.class)) +
+  geom_histogram(position = 'identity', stat="count") +
+  scale_fill_manual(values=c("deepskyblue3", "darkorange1")) +
+  theme_minimal() +
+  facet_wrap(~clams.class) +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        axis.text.x = element_text(angle = 60, hjust=1), legend.position = "none",
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50")) +
+  labs(y = "Number of samples", x = "ROR not reduced classification")
+
+ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_not_reduced_clams.png", width=9.3, height=5, dpi=300)
+
+# further look at the TRU that are intermediate
+patient_annotation_ror_clams %>%
+  subset(clams.class == "TRU" & ror.red.class %in% c("c040", "c045", "c050", "c055")) %>%
+  group_by(dataset, cancer.type) %>% tally() # 55/64 in LUAD
+
+# further look at the NonTRU that are low
+patient_annotation_ror_clams %>%
+  subset(clams.class == "NonTRU" & ror.red.class == "c005") %>%
+  group_by(dataset, cancer.type) %>% tally() %>% arrange(desc(n))
+#1144/3357 BRCA SCAN-B, 367 LGG, 326 BRCA GOBO, 304 KIRC...
+
 
 # do OS?
 
