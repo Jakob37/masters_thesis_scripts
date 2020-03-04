@@ -18,7 +18,7 @@ while (dev.cur()>1) dev.off()
 # LOAD GENERAL PACKAGES ------------------------------------------
 
 library(tidyverse)
-
+library(viridisLite)
 
 # INPUT DATA FROM data_input.R  ----------------------------------
 
@@ -28,22 +28,14 @@ file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 # (1A) ONLY PATIENT IDS FROM ANNOTATION
 # (2) GENE TABLE INFORMATION
 # (3) GEX
-# FUNCTION TO RUN DIFFERENT SSPS
+# FUNCTION TO RUN DIFFERENT SSPS run_ssps_function.R
+# GENERAL FUNCTIONS: GET SAMPLES CLASS FROM AIMS RESULT functions.R
 # ROR SSPs
 
 setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/")
 
 
 # ANALYSIS  ------------------------------------------------------
-
-# Functions
-get_sample_class_from_predictor_result <- function(ror_result) {
-  sample.class <- ror_result$cl[,]
-  sample.class <- data.frame(as.list(sample.class))
-  sample.class <- t(sample.class)
-  sample.class <- rownames_to_column(data.frame(sample.class), var = "sample.id")
-}
-
 
 # GOBO
 
@@ -64,14 +56,14 @@ ror_red_result_gobo <- applyAIMS(gex_matrix_gobo, entrez_ids_gobo, ror.red.aims.
 ror_all_result_gobo <- applyAIMS(gex_matrix_gobo, entrez_ids_gobo, ror.all.aims.gs)
 
 # extract the classification per sample from the predictor result, rename column to reflect aims.gs
-ror_red_class_gobo <- get_sample_class_from_predictor_result(ror_red_result_gobo)
+ror_red_class_gobo <- get_samples_class_from_predictor_result(ror_red_result_gobo)
 ror_red_class_gobo <- ror_red_class_gobo %>% rename(ror.red.class = sample.class)
-ror_all_class_gobo <- get_sample_class_from_predictor_result(ror_all_result_gobo)
+ror_all_class_gobo <- get_samples_class_from_predictor_result(ror_all_result_gobo)
 ror_all_class_gobo <- ror_all_class_gobo %>% rename(ror.all.class = sample.class)
 
 # save to patient id table
 ror_class_gobo <- inner_join(patient_ids_all_datasets, ror_red_class_gobo, by="sample.id")
-ror_class_gobo <- inner_join(ror_class_gobo, ror_all_class_gobo, by="sample.id")
+ror_class_gobo <- left_join(ror_class_gobo, ror_all_class_gobo, by="sample.id")
 
 rm(gex_matrix_gobo)
 rm(entrez_ids_gobo)
@@ -96,14 +88,14 @@ ror_red_result_scanb <- applyAIMS(gex_matrix_scanb, entrez_ids_scanb, ror.red.ai
 ror_all_result_scanb <- applyAIMS(gex_matrix_scanb, entrez_ids_scanb, ror.all.aims.gs)
 
 # extract the classification per sample from the predictor result, rename column to reflect aims.gs
-ror_red_class_scanb <- get_sample_class_from_predictor_result(ror_red_result_scanb)
+ror_red_class_scanb <- get_samples_class_from_predictor_result(ror_red_result_scanb)
 ror_red_class_scanb <- ror_red_class_scanb %>% rename(ror.red.class = sample.class)
-ror_all_class_scanb <- get_sample_class_from_predictor_result(ror_all_result_scanb)
+ror_all_class_scanb <- get_samples_class_from_predictor_result(ror_all_result_scanb)
 ror_all_class_scanb <- ror_all_class_scanb %>% rename(ror.all.class = sample.class)
 
 # save to patient id table
 ror_class_scanb <- inner_join(patient_ids_all_datasets, ror_red_class_scanb, by="sample.id")
-ror_class_scanb <- inner_join(ror_class_scanb, ror_all_class_scanb, by="sample.id")
+ror_class_scanb <- left_join(ror_class_scanb, ror_all_class_scanb, by="sample.id")
 
 rm(gex_matrix_scanb)
 rm(entrez_ids_scanb)
@@ -126,7 +118,6 @@ row.names(gex_matrix_tcga) <- entrez_ids_tcga
 # run ROR predictor
 cancer_types <- levels(patient_ids_all_datasets$cancer.type)
 for (cancer_type in cancer_types) {
-  
   # Subset data according to cancer type
   print(cancer_type)
   sample_list <- subset(patient_ids_all_datasets, dataset == 'TCGA' & cancer.type == cancer_type) %>% pull(sample.id)
@@ -137,23 +128,25 @@ for (cancer_type in cancer_types) {
   # run ROR predictors
   print('Running reduced')
   ror_red_result_tcga <- applyAIMS(new_gex_matrix, gene_entrez, ror.red.aims.gs)
+  assign(paste0("ror_red_result_tcga_", cancer_type), ror_red_result_tcga)
   print('Running complete')
   ror_all_result_tcga <- applyAIMS(new_gex_matrix, gene_entrez, ror.all.aims.gs)
+  assign(paste0("ror_all_result_tcga_", cancer_type), ror_all_result_tcga)
   
-  # extract the classification result
+  #extract the classification result
   if (exists("ror_red_class_tcga")) {
-    ror_red_class_tcga <- bind_rows(ror_red_class_tcga, get_sample_class_from_predictor_result(ror_red_result_tcga)) 
+    ror_red_class_tcga <- bind_rows(ror_red_class_tcga, get_samples_class_from_predictor_result(ror_red_result_tcga))
     } else {
-      ror_red_class_tcga <- get_sample_class_from_predictor_result(ror_red_result_tcga)
+      ror_red_class_tcga <- get_samples_class_from_predictor_result(ror_red_result_tcga)
     }
-  
   if (exists("ror_all_class_tcga")) {
-    ror_all_class_tcga <- bind_rows(ror_all_class_tcga, get_sample_class_from_predictor_result(ror_all_result_tcga))
+    ror_all_class_tcga <- bind_rows(ror_all_class_tcga, get_samples_class_from_predictor_result(ror_all_result_tcga))
     } else {
-      ror_all_class_tcga <- get_sample_class_from_predictor_result(ror_all_result_tcga)
+      ror_all_class_tcga  <- get_samples_class_from_predictor_result(ror_all_result_tcga)
     }
-  
   rm(new_gex_matrix)
+  rm(ror_red_result_tcga)
+  rm(ror_all_result_tcga)
 }
 
 ror_red_class_tcga <- ror_red_class_tcga %>% rename(ror.red.class = sample.class)
@@ -173,47 +166,70 @@ patient_annotation_ror$ror.all.class <- factor(patient_annotation_ror$ror.all.cl
 
 # RESULT
 # Save final table
-write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv", row.names=FALSE)
+# write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv", row.names=FALSE)
 
 
 
 # PLOTS  ------------------------------------------------------------------------
 
 # if starting from here
-# LOAD RESULTS FROM data_input.R  -----------------------------------------------
-
+# LOAD RESULTS FROM data_input.R
 # ROR RESULTS 
 # CLAMS RESULTS
-# PLOTS NAMES
 
-# compare classification between predictors
-table(patient_annotation_ror$ror.red.class, patient_annotation_ror$ror.all.class, useNA='ifany')
 
+# Pancancer  -------
 # compare what is low (<40) and what is High (>60)
 ror.low <- c('c005', 'c010', 'c015', 'c020', 'c025', 'c030', 'c035', 'c040')
-ror.interm <- c('c045', 'c050', 'c055', 'c060')
+ror.med <- c('c045', 'c050', 'c055', 'c060')
 ror.high <- c('c065', 'c070', 'c075', 'c080', 'c085', 'c090', 'c095')
 patient_annotation_ror <- patient_annotation_ror %>% 
                               mutate(ror.red.hl.class = case_when(ror.red.class %in% ror.low ~ "Low",
-                                                                  ror.red.class %in% ror.interm ~ "Intermediate",
+                                                                  ror.red.class %in% ror.med ~ "Medium",
                                                                   ror.red.class %in% ror.high ~ "High",
                                                                   TRUE ~ ror.red.class))
 patient_annotation_ror <- patient_annotation_ror %>% 
                               mutate(ror.all.hl.class = case_when(ror.all.class %in% ror.low ~ "Low",
-                                                                  ror.all.class %in% ror.interm ~ "Intermediate",
+                                                                  ror.all.class %in% ror.med ~ "Medium",
                                                                   ror.all.class %in% ror.high ~ "High",
                                                                   TRUE ~ ror.all.class))
+patient_annotation_ror$ror.red.hl.class <- factor(patient_annotation_ror$ror.red.hl.class, 
+                                                  levels = c("High", "Medium", "Low"))
+patient_annotation_ror$ror.all.hl.class <- factor(patient_annotation_ror$ror.all.hl.class, 
+                                                  levels = c("High", "Medium", "Low"))
 
-write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv", row.names=FALSE)
+# write.csv(patient_annotation_ror, "/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv", row.names=FALSE)
 
-
-# with CLAMS classification as well
 patient_annotation_ror_clams <- left_join(patient_annotation_ror, patient_annotation_clams, 
                                           by=c("sample.id", "cancer.type", "dataset"))
-table(patient_annotation_ror_clams$ror.red.hl.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
-table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.red.hl.class, useNA='ifany')
-table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
 
+# compare classification between predictors
+# reduced vs all, all classes
+red_vs_all <- table(patient_annotation_ror_clams$ror.red.class, patient_annotation_ror_clams$ror.all.class, useNA='ifany')
+red_vs_all
+red_vs_all %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+heatmap(red_vs_all %>% prop.table() %>% '*'(100) %>% round(2), Colv = NA, Rowv = NA,
+        col=(viridis(10, direction =-1)))
+
+# reduced vs all, low/medium/high
+red_vs_all_hl <- table(patient_annotation_ror_clams$ror.red.hl.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
+red_vs_all_hl
+red_vs_all_hl %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+
+# compare classification with CLAMS
+# reduced, low/medium/high
+clams_vs_red <- table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.red.hl.class, useNA='ifany')
+clams_vs_red
+clams_vs_red %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+# all, low/medium/high
+clams_vs_all <- table(patient_annotation_ror_clams$clams.class, patient_annotation_ror_clams$ror.all.hl.class, useNA='ifany')
+clams_vs_all
+clams_vs_all %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+
+# see all classes by CLAMS
 patient_annotation_ror_clams %>%
   ggplot(aes(x=ror.red.class, fill=clams.class)) +
   geom_histogram(position = 'identity', stat="count") +
@@ -226,7 +242,7 @@ patient_annotation_ror_clams %>%
         axis.ticks.x.bottom=element_line(color="grey50")) +
   labs(y = "Number of samples", x = "ROR reduced classification")
 
-ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_reduced_clams.png", width=9.3, height=5, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_reduced_clams.png", width=9.3, height=5, dpi=300)
 
 patient_annotation_ror_clams %>%
   ggplot(aes(x=ror.all.class, fill=clams.class)) +
@@ -240,19 +256,74 @@ patient_annotation_ror_clams %>%
         axis.ticks.x.bottom=element_line(color="grey50")) +
   labs(y = "Number of samples", x = "ROR not reduced classification")
 
-ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_not_reduced_clams.png", width=9.3, height=5, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ROR_not_reduced_clams.png", width=9.3, height=5, dpi=300)
 
-# further look at the TRU that are intermediate
+
+# further look at the TRU that are ROR medium risk
+# reduced
 patient_annotation_ror_clams %>%
   subset(clams.class == "TRU" & ror.red.class %in% c("c040", "c045", "c050", "c055")) %>%
   group_by(dataset, cancer.type) %>% tally() # 55/64 in LUAD
+tru_medium_red <- patient_annotation_ror_clams %>%
+  subset(clams.class == "TRU" & ror.red.class %in% c("c040", "c045", "c050", "c055")) %>%
+  pull(sample.id)
 
-# further look at the NonTRU that are low
+# all
+patient_annotation_ror_clams %>%
+  subset(clams.class == "TRU" & ror.all.class %in% c("c040", "c045", "c050", "c055")) %>%
+  group_by(dataset, cancer.type) %>% tally() # 72/81 in LUAD
+tru_medium_all <- patient_annotation_ror_clams %>%
+  subset(clams.class == "TRU" & ror.all.class %in% c("c040", "c045", "c050", "c055")) %>%
+  pull(sample.id)
+
+# common samples
+intersect(tru_medium_red, tru_medium_all) #60/507 samples
+
+# check the probabilities of the LUAD ones
+# load: ror_results.RData, functions.R
+luad_red_prob <- get_samples_prob_from_predictor_result(ror_red_result_tcga_LUAD)
+luad_tru_med_red_prob <- subset(luad_red_prob, luad_red_prob$sample.id %in% tru_medium_red)
+hist(luad_tru_med_red_prob$sample.prob) # above 0.92
+luad_all_prob <- get_samples_prob_from_predictor_result(ror_all_result_tcga_LUAD)
+luad_tru_med_all_prob <- subset(luad_all_prob, luad_red_prob$sample.id %in% tru_medium_all)
+hist(luad_tru_med_all_prob$sample.prob) # 0.67, 0.79, above 0.95
+# probabilities are high, not the problem
+
+
+# further look at the NonTRU that are super low ROR
+# red
 patient_annotation_ror_clams %>%
   subset(clams.class == "NonTRU" & ror.red.class == "c005") %>%
   group_by(dataset, cancer.type) %>% tally() %>% arrange(desc(n))
-#1144/3357 BRCA SCAN-B, 367 LGG, 326 BRCA GOBO, 304 KIRC...
+
+# all
+patient_annotation_ror_clams %>%
+  subset(clams.class == "NonTRU" & ror.all.class == "c005") %>%
+  group_by(dataset, cancer.type) %>% tally() %>% arrange(desc(n))
 
 
-# do OS?
+# BRCA only ------
+brca_subset_ror_clams <- subset(patient_annotation_ror_clams, cancer.type == "BRCA")
+brca_subset_ror_clams %>% group_by(dataset) %>% tally() #numbers match
+
+# reduced vs all, low/medium/high
+red_vs_all_hl_brca <- table(brca_subset_ror_clams$ror.red.hl.class, brca_subset_ror_clams$ror.all.hl.class, useNA='ifany')
+red_vs_all_hl_brca
+red_vs_all_hl_brca %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+# compare classification with CLAMS
+# reduced, low/medium/high
+clams_vs_red_brca <- table(brca_subset_ror_clams$clams.class, brca_subset_ror_clams$ror.red.hl.class, useNA='ifany')
+clams_vs_red_brca
+clams_vs_red_brca %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+# only TRU
+tru_brca <- subset(brca_subset_ror_clams, clams.class == "TRU")
+tru_vs_red_brca <- table(tru_brca$clams.class, tru_brca$ror.red.hl.class, useNA='ifany')
+tru_vs_red_brca %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
+
+# all, low/medium/high
+red_vs_all_hl_tru_brca <- table(tru_brca$ror.red.hl.class, tru_brca$ror.all.hl.class, useNA='ifany')
+red_vs_all_hl_tru_brca
+red_vs_all_hl_tru_brca %>% prop.table() %>% '*'(100) %>% round(2) %>% addmargins()
 
