@@ -19,6 +19,7 @@ while (dev.cur()>1) dev.off()
 library(tidyverse)
 library(survival)
 library(survminer)
+library(viridisLite)
 
 
 # INPUT DATA FROM data_input.R  ----------------------------------
@@ -302,3 +303,56 @@ plot_ror_red_os(ror.groups.lmh, ror_labels, ror_colors)
 plot_ror_red_os(ror.groups.lm, ror_labels[1:2], ror_colors[1:2])
 plot_ror_red_os(ror.groups.mh, ror_labels[2:3], ror_colors[2:3])
 # plot_ror_red_os(ror.groups.hl, "Low", "#bcb9b9") # empty
+
+
+# PAM50  --------------------------------------------------
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/OS 5y/")
+
+patients_os_pam50 <- left_join(patient_os_all_datasets, patient_annotation_pam50,
+                             by = c("sample.id", "cancer.type", "dataset"))
+patients_os_pam50$pam50.red.class <- factor(patients_os_pam50$pam50.red.class, 
+                                            levels=c("LumA", "LumB", "Her2", "Basal"))
+
+# BRCA only
+brca_subset_os_pam50 <- subset(patients_os_pam50, cancer.type == "BRCA")
+
+groups.to.analyze <- levels(factor(brca_subset_os_pam50$groups.to.analyze))
+
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
+
+# reduced
+for (a.group in groups.to.analyze) {
+  print(a.group)
+  group_subset <- subset(brca_subset_os_pam50, groups.to.analyze == a.group)
+  # make the object
+  overall_surv_object <- Surv(time=group_subset[[time_column]], 
+                              event=group_subset[[event_column]])
+  # separating estimates by PAM50
+  fit_prolif <- survfit(overall_surv_object~pam50.red.class, data=group_subset)
+  # testing by proliferation group
+  print(survdiff(Surv(group_subset[[time_column]], 
+                      group_subset[[event_column]])~group_subset$pam50.red.class,))
+  # plot
+  # simple for comparing info and making sure names are correct
+  # print(ggsurvplot(fit_prolif, data=group_subset, title="Overall Survival", risk.table=TRUE))
+  # good looking one
+  current_plot <- ggsurvplot(fit_prolif, data=group_subset,
+                             palette=plasma(4, begin = 0.3, direction = -1),
+                             title=paste0("Overall Survival (", a.group, ")"),
+                             xlab=paste0("Time (", time_type, ")"),
+                             censor.shape=124, censor.size=3,
+                             pval=TRUE, pval.coord=c(0,0.1),
+                             surv.median.line="hv",
+                             risk.table=TRUE,
+                             risk.table.fontsize = 4,
+                             tables.theme = theme_survminer(font.main = 14),
+                             legend="none", legend.title="PAM50",
+                             legend.labs=c("LumA", "LumB", "HER2", "Basal"))
+  print(current_plot)
+  current_filename <- paste0("OS 5y ", a.group, ".png")
+  ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+}
+
