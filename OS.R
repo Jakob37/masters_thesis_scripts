@@ -4,7 +4,7 @@
 #
 # MASTER OF BIOINFORMATICS - THESIS
 #
-# SCRIPT TO PREPARE PAN CANCER DATA, GET IMMUNE SIGNATURE MEASURE AND PLOT
+# SCRIPT TO CENSOR OS DATA AND PLOT
 #
 #
 
@@ -26,88 +26,187 @@ library(survminer)
 file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 
 # don't source or it crashes...
-# (1A) ONLY PATIENT IDS FROM ANNOTATION
-# (2) GENE TABLE INFORMATION
-# (3) GEX
+# (1B) OS FROM ANNOTATION - always
+# if needed:
+# CLAMS RESULTS
+# ROR RESULTS
+# PAM50 RESULTS
 
 
 
+patient_os_all_datasets <- patient_os_all_datasets %>% mutate(groups.to.analyze = paste(cancer.type, dataset, sep="_"))
+patient_os_all_datasets$groups.to.analyze <- factor(patient_os_all_datasets$groups.to.analyze)
+groups.to.analyze <- levels(patient_os_all_datasets$groups.to.analyze)
 
-### BEGINNING OF OS FROM PROLIF ---------------------
+# GET ALL TIME INFO TO SAME TYPE  (M/Y)  --------------------------
 
-# OVERALL SURVIVAL ----
-
-# FOR ONLY ONE CANCER TYPE IN THE DATASET - GOBO OR SCAN-B
-
-patient_annotation <- patient_annotation_gobo
-overall_survival_name <- "BRCA - GOBO"
-
-
-patient_annotation <- patient_annotation_scanb
-overall_survival_name <- "BRCA - SCAN-B"
-
-# analysis
-patient_annotation$prolif.group.karl <- factor(patient_annotation$prolif.group.karl, levels=c("Low", "High"))
-# make the object
-overall_surv_object <- Surv(time=patient_annotation[[time_column_to_use]], 
-                            event=patient_annotation[[event_column_to_use]])
-# separating estimates by Low and High proliferative
-fit_prolif <- survfit(overall_surv_object~prolif.group.karl, data=patient_annotation)
-# testing by clams class
-print(survdiff(Surv(patient_annotation[[time_column_to_use]], 
-                    patient_annotation[[event_column_to_use]])~patient_annotation$prolif.group.karl,))
-
-# plot
-# simple for comparing info and making sure names are correct
-print(ggsurvplot(fit_prolif, data=patient_annotation, title="Overall Survival", risk.table=TRUE))
-# good looking one
-current_plot <- ggsurvplot(fit_prolif, data=patient_annotation,
-                           palette=c("#26828E", "#FDE725"),
-                           title=paste0("Overall Survival (", overall_survival_name, ")"), 
-                           xlab=paste0("Time (years)"),
-                           censor.shape=124, censor.size=3,
-                           pval=TRUE, pval.coord=c(0,0.1),
-                           surv.median.line="hv",
-                           risk.table=TRUE,
-                           risk.table.fontsize = 4,
-                           tables.theme = theme_survminer(font.main = 14),
-                           legend="none", legend.title="Proliferation",
-                           legend.labs=c("Low", "High"))
-print(current_plot)
-current_filename <- "OS 5y GOBO.png" # GOBO
-current_filename <- "OS 5y SCANB.png" # SCAN-B
-ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+# mutate patient OS info to months and years
+patient_os_all_datasets$OS.time.type <- as.character(patient_os_all_datasets$OS.time.type)
+patient_os_all_datasets <- patient_os_all_datasets %>%
+                              mutate(OS.time.years = case_when(OS.time.type == 'days' ~ (OS.time / 365.2425),
+                                                              OS.time.type == 'months' ~ (OS.time / 30.436875),
+                                                              OS.time.type == 'years' ~ OS.time,
+                                                              TRUE ~ OS.time),
+                                     OS.time.months = case_when(OS.time.type == 'days' ~ (OS.time / 30.436875),
+                                                               OS.time.type == 'months' ~ OS.time,
+                                                               OS.time.type == 'years' ~ (OS.time * 12),
+                                                               TRUE ~ OS.time))
 
 
-# FOR TCGA
+# CENSOR AT SPECIFIC TIME POINT  ----------------------------------
 
-patient_annotation <- patient_annotation_tcga
-patient_annotation$prolif.group.karl <- factor(patient_annotation$prolif.group.karl, levels=c("Low", "High"))
-groups.to.analyze <- levels(factor(patient_annotation$cancer.type))
+censor_data <- function (time_to_censor, unit_to_censor) {
+  # get new names and what columns to use for censoring
+  time_column_to_use <- case_when(unit_to_censor == "y" ~ "OS.time.years",
+                                  unit_to_censor == "m" ~ "OS.time.months")
+  censored_time_column <- case_when(unit_to_censor == "y" ~ paste0("OS.time.years.", time_to_censor, unit_to_censor),
+                                    unit_to_censor == "m" ~ paste0("OS.time.months.", time_to_censor, unit_to_censor))
+  censored_event_column <- paste0("OS.event.", time_to_censor, unit_to_censor)
+  
+  # censor
+  patient_os_all_datasets <- patient_os_all_datasets %>%
+    # if OS number > time_to_censor, set time to cap, else keep original number
+    mutate(censored_time =
+             ifelse(get(time_column_to_use) > as.numeric(time_to_censor),
+                    as.numeric(time_to_censor), get(time_column_to_use)),
+           # if OS number > time_to_censor, set event to 0, else keep original event
+           censored_event = 
+             ifelse(get(time_column_to_use) > as.numeric(time_to_censor),
+                    0, OS.event))
+  names(patient_os_all_datasets)[names(patient_os_all_datasets) == "censored_time"] <- censored_time_column
+  names(patient_os_all_datasets)[names(patient_os_all_datasets) == "censored_event"] <- censored_event_column  
+  return(patient_os_all_datasets)
+}               
 
-groups.to.analyze <- "LUAD"
+patient_os_all_datasets <- censor_data(5, "y")
+patient_os_all_datasets <- censor_data(10, "y")
 
-setwd("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Proliferation Karlsson/25th percentile/OS 5y/")
 
-for (type_to_analyze in groups.to.analyze) {
+# OVERALL SURVIVAL CLAMS  -------------------------------------------------
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/0_clams/OS 5y/")
+
+patients_os_clams <- left_join(patient_os_all_datasets, patient_annotation_clams,
+                               by = c("sample.id", "cancer.type", "dataset"))
+
+groups.to.analyze.clams <- subset(patients_os_clams, clams.class == "TRU") %>% pull(groups.to.analyze) %>% unique() %>% as.character()
+
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
+
+for (type_to_analyze in groups.to.analyze.clams) {
   print(type_to_analyze)
-  type_subset <- subset(patient_annotation, cancer.type == type_to_analyze)
+  type_subset <- subset(patients_os_clams, groups.to.analyze == type_to_analyze)
+  type_subset$clams.class <- factor(type_subset$clams.class, levels=c("TRU", "NonTRU"))
   # make the object
-  overall_surv_object <- Surv(time=type_subset[[time_column_to_use]], 
-                              event=type_subset[[event_column_to_use]])
+  overall_surv_object <- Surv(time=type_subset[[time_column]], 
+                              event=type_subset[[event_column]])
   # separating estimates by TRU or NonTRU
-  fit_prolif <- survfit(overall_surv_object~prolif.group.karl, data=type_subset)
+  fit_clams <- survfit(overall_surv_object~clams.class, data=type_subset)
   # testing by clams class
-  print(survdiff(Surv(type_subset[[time_column_to_use]], 
-                      type_subset[[event_column_to_use]])~type_subset$prolif.group.karl,))
+  print(survdiff(Surv(type_subset[[time_column]], 
+                      type_subset[[event_column]])~type_subset$clams.class,))
+  
   # plot
   # simple for comparing info and making sure names are correct
-  #print(ggsurvplot(fit_prolif, data=type_subset, title="Overall Survival", risk.table=TRUE))
+  # print(ggsurvplot(fit_clams, data=type_subset, title="Overall Survival", risk.table=TRUE))
   # good looking one
-  current_plot <- ggsurvplot(fit_prolif, data=type_subset,
-                             palette=c("#26828E", "#FDE725"),
+  current_plot <- ggsurvplot(fit_clams, data=type_subset,
+                   palette=c("darkorange1", "deepskyblue3"),
+                   title=paste0("Overall Survival (", type_to_analyze, ")"), 
+                   xlab=paste0("Time (", time_type, ")"),
+                   censor.shape=124, censor.size=3,
+                   pval=TRUE, pval.coord=c(0,0.1),
+                   surv.median.line="hv",
+                   risk.table=TRUE,
+                   risk.table.fontsize = 4,
+                   tables.theme = theme_survminer(font.main = 14),
+                   legend="none", legend.title="CLAMS",
+                   legend.labs=c("TRU", "NonTRU"))
+  print(current_plot)
+  current_filename <- paste0("OS 5y ", type_to_analyze, ".png")
+  ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+}
+
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/0_clams/OS 10y BRCA/")
+
+groups.brca <- subset(patients_os_clams, cancer.type == "BRCA") %>% pull(groups.to.analyze) %>% unique() %>% as.character()
+
+time_column <- "OS.time.years.10y"
+event_column <- "OS.event.10y"
+time_type <- "years"
+
+for (type_to_analyze in groups.brca) {
+  print(type_to_analyze)
+  type_subset <- subset(patients_os_clams, groups.to.analyze == type_to_analyze)
+  type_subset$clams.class <- factor(type_subset$clams.class, levels=c("TRU", "NonTRU"))
+  # make the object
+  overall_surv_object <- Surv(time=type_subset[[time_column]], 
+                              event=type_subset[[event_column]])
+  # separating estimates by TRU or NonTRU
+  fit_clams <- survfit(overall_surv_object~clams.class, data=type_subset)
+  # testing by clams class
+  print(survdiff(Surv(type_subset[[time_column]], 
+                      type_subset[[event_column]])~type_subset$clams.class,))
+  
+  # plot
+  # simple for comparing info and making sure names are correct
+  # print(ggsurvplot(fit_clams, data=type_subset, title="Overall Survival", risk.table=TRUE))
+  # good looking one
+  current_plot <- ggsurvplot(fit_clams, data=type_subset,
+                             palette=c("darkorange1", "deepskyblue3"),
                              title=paste0("Overall Survival (", type_to_analyze, ")"), 
-                             xlab=paste0("Time (years)"),
+                             xlab=paste0("Time (", time_type, ")"),
+                             censor.shape=124, censor.size=3,
+                             pval=TRUE, pval.coord=c(0,0.1),
+                             surv.median.line="hv",
+                             risk.table=TRUE,
+                             risk.table.fontsize = 4,
+                             tables.theme = theme_survminer(font.main = 14),
+                             legend="none", legend.title="CLAMS",
+                             legend.labs=c("TRU", "NonTRU"))
+  print(current_plot)
+  current_filename <- paste0("OS 10y ", type_to_analyze, ".png")
+  ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+}
+
+
+# PROLIFERATION  -------------------------------------------------
+
+setwd("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/25th percentile/OS 5y/")
+
+patients_os_prolif <- left_join(patient_os_all_datasets, patient_annotation_prolif,
+                               by = c("sample.id", "cancer.type", "dataset", "groups.to.analyze"))
+
+groups.to.analyze <- levels(factor(patients_os_prolif$groups.to.analyze))
+
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
+
+
+for (a.group in groups.to.analyze) {
+  print(a.group)
+  group_subset <- subset(patients_os_prolif, groups.to.analyze == a.group)
+  group_subset$prolif.group.karl <- factor(group_subset$prolif.group.karl, levels=c("Low", "High"))
+  # make the object
+  overall_surv_object <- Surv(time=group_subset[[time_column]], 
+                              event=group_subset[[event_column]])
+  # separating estimates by Low or High
+  fit_prolif <- survfit(overall_surv_object~prolif.group.karl, data=group_subset)
+  # testing by proliferation group
+  print(survdiff(Surv(group_subset[[time_column]], 
+                      group_subset[[event_column]])~group_subset$prolif.group.karl,))
+  # plot
+  # simple for comparing info and making sure names are correct
+  # print(ggsurvplot(fit_prolif, data=group_subset, title="Overall Survival", risk.table=TRUE))
+  # good looking one
+  current_plot <- ggsurvplot(fit_prolif, data=group_subset,
+                             palette=c("#FDE725", "#26828E"),
+                             title=paste0("Overall Survival (", a.group, ")"), 
+                             xlab=paste0("Time (", time_type, ")"),
                              censor.shape=124, censor.size=3,
                              pval=TRUE, pval.coord=c(0,0.1),
                              surv.median.line="hv",
@@ -117,272 +216,89 @@ for (type_to_analyze in groups.to.analyze) {
                              legend="none", legend.title="Proliferation",
                              legend.labs=c("Low", "High"))
   print(current_plot)
-  current_filename <- paste0("OS 5y ", type_to_analyze, ".png")
+  current_filename <- paste0("OS 5y ", a.group, ".png")
   ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
 }
 
 
-### END OF OS FROM PROLIF ---------------------
+# ROR  -------------------------------------------------
+# but do with relapse free instead of OS?
 
+setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/OS 5y/")
 
+patients_os_ror <- left_join(patient_os_all_datasets, patient_annotation_ror,
+                                by = c("sample.id", "cancer.type", "dataset"))
 
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
 
-
-
-
-
-
-
-
-## GOBO ------------
-
-os_time_column_to_use <- "OS"
-overall_survival_event_column_name <- "OSbin"
-
-# CENSOR DATA AT SPECIFIC NUMBER OF DAYS/MONTHS/YEARS
-censor_at_timepoint <- 5
-number_to_cap_at <- 5
-# if OS number > number_to_cap_at, set time to cap, else keep original number
-patient_annotation_gobo <- mutate(patient_annotation_gobo, new_os_time_column =
-                                    ifelse(
-                                      get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                      as.numeric(number_to_cap_at), get(os_time_column_to_use)))
-# if OS number > number_to_cap_at, set event to 0, else keep original event
-patient_annotation_gobo <- mutate(patient_annotation_gobo, new_os_event_column =
-                                    ifelse(
-                                      get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                      0, get(overall_survival_event_column_name)))
-new_os_time_column_name <- paste(os_time_column_to_use,
-                                 censor_at_timepoint, sep="_")
-new_os_event_column_name <- paste(overall_survival_event_column_name,
-                                  censor_at_timepoint, sep="_")
-names(patient_annotation_gobo)[names(patient_annotation_gobo) == "new_os_time_column"] <- new_os_time_column_name
-names(patient_annotation_gobo)[names(patient_annotation_gobo) == "new_os_event_column"] <- new_os_event_column_name  
-
-# GET THE CORRECT COLUMN FOR OS TIME (DAYS/MONTHS/YEARS, CENSORED/NOT)
-time_column_to_use <- new_os_time_column_name
-event_column_to_use <- new_os_event_column_name
-
-# COX for hazard ratios - CLAMS
-patient_annotation_gobo$clams_class <- factor(patient_annotation_gobo$clams_class, levels=c("TRU", "NonTRU"))
-summary(coxph(formula = Surv(OS_5, OSbin_5)~clams_class, data = patient_annotation_gobo))
-print(ggforest(coxph(formula = Surv(OS_5, OSbin_5)~clams_class, data = patient_annotation_gobo), main = "Hazard ratio GOBO"))
-
-# COX for hazard ratios - prolif.group.karl
-patient_annotation_gobo$prolif.group.karl <- factor(patient_annotation_gobo$prolif.group.karl, levels=c("Low", "High"))
-summary(coxph(formula = Surv(OS_5, OSbin_5)~prolif.group.karl, data = patient_annotation_gobo))
-print(ggforest(coxph(formula = Surv(OS_5, OSbin_5)~prolif.group.karl, data = patient_annotation_gobo), main = "Hazard ratio GOBO"))
-
-
-
-
-
-
-## SCAN-B ------------
-
-os_time_column_to_use <- "OS"
-overall_survival_event_column_name <- "OSbin"
-
-# CENSOR DATA AT SPECIFIC NUMBER OF DAYS/MONTHS/YEARS
-censor_at_timepoint <- 5
-number_to_cap_at <- 5
-# if OS number > number_to_cap_at, set time to cap, else keep original number
-patient_annotation_scanb <- mutate(patient_annotation_scanb, new_os_time_column =
-                                     ifelse(
-                                       get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                       as.numeric(number_to_cap_at), get(os_time_column_to_use)))
-# if OS number > number_to_cap_at, set event to 0, else keep original event
-patient_annotation_scanb <- mutate(patient_annotation_scanb, new_os_event_column =
-                                     ifelse(
-                                       get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                       0, get(overall_survival_event_column_name)))
-new_os_time_column_name <- paste(os_time_column_to_use,
-                                 censor_at_timepoint, sep="_")
-new_os_event_column_name <- paste(overall_survival_event_column_name,
-                                  censor_at_timepoint, sep="_")
-names(patient_annotation_scanb)[names(patient_annotation_scanb) == "new_os_time_column"] <- new_os_time_column_name
-names(patient_annotation_scanb)[names(patient_annotation_scanb) == "new_os_event_column"] <- new_os_event_column_name  
-
-# GET THE CORRECT COLUMN FOR OS TIME (DAYS/MONTHS/YEARS, CENSORED/NOT)
-time_column_to_use <- new_os_time_column_name
-event_column_to_use <- new_os_event_column_name
-
-# COX for hazard ratios - CLAMS
-patient_annotation_scanb$clams_class <- factor(patient_annotation_scanb$clams_class, levels=c("TRU", "NonTRU"))
-summary(coxph(formula = Surv(OS_5, OSbin_5)~clams_class, data = patient_annotation_scanb))
-print(ggforest(coxph(formula = Surv(OS_5, OSbin_5)~clams_class, data = patient_annotation_scanb), main = "Hazard ratio SCAN-B"))
-
-# COX for hazard ratios - prolif.group.karl
-patient_annotation_scanb$prolif.group.karl <- factor(patient_annotation_scanb$prolif.group.karl, levels=c("Low", "High"))
-summary(coxph(formula = Surv(OS_5, OSbin_5)~prolif.group.karl, data = patient_annotation_scanb))
-print(ggforest(coxph(formula = Surv(OS_5, OSbin_5)~prolif.group.karl, data = patient_annotation_scanb), main = "Hazard ratio SCAN-B"))
-
-
-
-
-
-## TCGA ------------
-
-os_time_column_to_use <- "OS.time"
-overall_survival_time_column_name <- "OS.time"
-overall_survival_event_column_name <- "OS"
-overall_survival_time_column_unit_table <- "days"
-overall_survival_time_column_unit_desired <- "years"
-
-# MUTATE patient_annotation_tcga SO OS TIME IS IN MONTHS OR YEARS INSTEAD OF DAYS IF NEEDED
-if (overall_survival_time_column_unit_table == overall_survival_time_column_unit_desired) {
-  os_time_column_to_use <- overall_survival_time_column_name
-} else if (overall_survival_time_column_unit_table == 'days' & 
-           overall_survival_time_column_unit_desired == 'years') {
-  patient_annotation_tcga <- mutate(patient_annotation_tcga, os_time_years = get(overall_survival_time_column_name) / 365.2425)
-  new_os_time_column_name <- paste0(overall_survival_time_column_name, "_years")
-  names(patient_annotation_tcga)[names(patient_annotation_tcga) == "os_time_years"] <- new_os_time_column_name
-  os_time_column_to_use <- new_os_time_column_name
-} else if (overall_survival_time_column_unit_table == 'months' & 
-           overall_survival_time_column_unit_desired == 'years') {
-  patient_annotation_tcga <- mutate(patient_annotation_tcga, os_time_years = get(overall_survival_time_column_name) / 12)
-  new_os_time_column_name <- paste0(overall_survival_time_column_name, "_years")
-  names(patient_annotation_tcga)[names(patient_annotation_tcga) == "os_time_years"] <- new_os_time_column_name
-  os_time_column_to_use <- new_os_time_column_name
-} else if (overall_survival_time_column_unit_table == 'days' & 
-           overall_survival_time_column_unit_desired == 'months') {
-  patient_annotation_tcga <- mutate(patient_annotation_tcga, os_time_months = get(overall_survival_time_column_name) / 30.436875)
-  new_os_time_column_name <- paste0(overall_survival_time_column_name, "_months")
-  names(patient_annotation_tcga)[names(patient_annotation_tcga) == "os_time_months"] <- new_os_time_column_name
-  os_time_column_to_use <- new_os_time_column_name
-} else {
-  print('Something went wrong when changing the time unit')
+# ROR reduced set
+plot_ror_red_os <- function(ror_group, ror_labels, ror_colors) {
+  for (a.group in ror_group) {
+    print(a.group)
+    group_subset <- subset(patients_os_ror, groups.to.analyze == a.group)
+    group_subset$ror.red.hl.class <- factor(group_subset$ror.red.hl.class, levels=ror_labels)
+    # make the object
+    overall_surv_object <<- Surv(time=group_subset[[time_column]], # bad practice, but fixed my problem
+                                event=group_subset[[event_column]])
+    # separating estimates by Low, Medium or High
+    fit_prolif <- survfit(overall_surv_object~ror.red.hl.class, data=group_subset)
+    # testing by ror group
+    print(survdiff(Surv(group_subset[[time_column]], 
+                          group_subset[[event_column]])~group_subset$ror.red.hl.class,))
+    # plot
+    # simple for comparing info and making sure names are correct
+    # print(ggsurvplot(fit_prolif, data=group_subset, title="Overall Survival", risk.table=TRUE))
+    # good looking one
+    current_plot <- ggsurvplot(fit_prolif, data=group_subset,
+                               palette=ror_colors,
+                               title=paste0("Overall Survival (", a.group, ")"),
+                               xlab=paste0("Time (", time_type, ")"),
+                               censor.shape=124, censor.size=3,
+                               pval=TRUE, pval.coord=c(0,0.1),
+                               surv.median.line="hv",
+                               risk.table=TRUE,
+                               risk.table.fontsize = 4,
+                               tables.theme = theme_survminer(font.main = 14),
+                               legend="none", legend.title="ROR",
+                               legend.labs=ror_labels)
+    print(current_plot)
+    current_filename <- paste0("OS 5y ", a.group, ".png")
+    ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+  }
 }
 
+ror.groups.lmh <- NULL
+ror.groups.lm <- NULL
+ror.groups.mh <- NULL
+ror.groups.hl <- NULL
+ror.groups.one <- NULL
 
-# CENSOR DATA AT SPECIFIC NUMBER OF DAYS/MONTHS/YEARS
-censor_at_timepoint <- 5
-number_to_cap_at <- 5
-# if OS number > number_to_cap_at, set time to cap, else keep original number
-patient_annotation_tcga <- mutate(patient_annotation_tcga, new_os_time_column =
-                                    ifelse(
-                                      get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                      as.numeric(number_to_cap_at), get(os_time_column_to_use)))
-# if OS number > number_to_cap_at, set event to 0, else keep original event
-patient_annotation_tcga <- mutate(patient_annotation_tcga, new_os_event_column =
-                                    ifelse(
-                                      get(os_time_column_to_use) > as.numeric(number_to_cap_at),
-                                      0, get(overall_survival_event_column_name)))
-new_os_time_column_name <- paste(os_time_column_to_use,
-                                 censor_at_timepoint, sep="_")
-new_os_event_column_name <- paste(overall_survival_event_column_name,
-                                  censor_at_timepoint, sep="_")
-names(patient_annotation_tcga)[names(patient_annotation_tcga) == "new_os_time_column"] <- new_os_time_column_name
-names(patient_annotation_tcga)[names(patient_annotation_tcga) == "new_os_event_column"] <- new_os_event_column_name  
-
-# GET THE CORRECT COLUMN FOR OS TIME (DAYS/MONTHS/YEARS, CENSORED/NOT)
-time_column_to_use <- new_os_time_column_name
-event_column_to_use <- new_os_event_column_name
-
-# COX for hazard ratios - CLAMS
-patient_annotation_tcga$clams_class <- factor(patient_annotation_tcga$clams_class, levels=c("TRU", "NonTRU"))
-summary(coxph(formula = Surv(get(time_column_to_use), get(event_column_to_use))~clams_class, data = patient_annotation_tcga))
-print(ggforest(coxph(formula = Surv(get(time_column_to_use), get(event_column_to_use))~clams_class, data = patient_annotation_tcga), main = "Hazard ratio TCGA BRCA"))
-
-# COX for hazard ratios - prolif.group.karl
-patient_annotation_tcga$prolif.group.karl <- factor(patient_annotation_tcga$prolif.group.karl, levels=c("Low", "High"))
-groups.to.analyze <- levels(factor(patient_annotation_tcga$cancer.type))
-
-for (type_to_analyze in groups.to.analyze) {
-  print(type_to_analyze)
-  type_subset <- subset(patient_annotation_tcga, cancer.type == type_to_analyze)
-  type_subset$prolif.group.karl <- factor(type_subset$prolif.group.karl, levels=c("Low", "High"))
-  # make the object
-  overall_surv_object <- Surv(time=type_subset[[time_column_to_use]], 
-                              event=type_subset[[event_column_to_use]])
-  print(summary(coxph(formula = overall_surv_object~prolif.group.karl, data = type_subset)))
-  print(ggforest(coxph(formula = overall_surv_object~prolif.group.karl, data = type_subset), main = paste("Hazard ratio", type_to_analyze)))
+# divide plots by ROR classes in data
+for (a.group in groups.to.analyze) {
+  ror_classes <- subset(patients_os_ror, groups.to.analyze == a.group) %>% pull(ror.red.hl.class) %>% unique() %>% as.character()
+  if (length(ror_classes) == 3) {
+    ror.groups.lmh <- c(ror.groups.lmh, a.group)
+  }
+  else if (length(ror_classes) == 2) {
+    if ("Low" %in% ror_classes & "Medium" %in% ror_classes) {
+      ror.groups.lm <- c(ror.groups.lm, a.group)
+    } else if ("Medium" %in% ror_classes & "High" %in% ror_classes) {
+      ror.groups.mh <- c(ror.groups.mh, a.group)
+    } else if ("Low" %in% ror_classes & "High" %in% ror_classes) {
+      ror.groups.hl <- c(ror.groups.hl, a.group)
+    }
+  }
+  else if (length(ror_classes) == 1) {
+    ror.groups.one <- c(ror.groups.one, a.group)
+  }
 }
 
+ror_labels <- c("Low", "Medium", "High")
+ror_colors <- c("#bcb9b9", "#6a6868", "#030303")
 
-
-# OVERALL SURVIVAL ----
-
-# FOR ONLY ONE CANCER TYPE IN THE DATASET - GOBO OR SCAN-B
-
-patient_annotation <- patient_annotation_gobo
-overall_survival_name <- "BRCA - GOBO"
-
-
-patient_annotation <- patient_annotation_scanb
-overall_survival_name <- "BRCA - SCAN-B"
-
-# analysis
-patient_annotation$prolif.group.karl <- factor(patient_annotation$prolif.group.karl, levels=c("Low", "High"))
-# make the object
-overall_surv_object <- Surv(time=patient_annotation[[time_column_to_use]], 
-                            event=patient_annotation[[event_column_to_use]])
-# separating estimates by Low and High proliferative
-fit_prolif <- survfit(overall_surv_object~prolif.group.karl, data=patient_annotation)
-# testing by clams class
-print(survdiff(Surv(patient_annotation[[time_column_to_use]], 
-                    patient_annotation[[event_column_to_use]])~patient_annotation$prolif.group.karl,))
-
-# plot
-# simple for comparing info and making sure names are correct
-print(ggsurvplot(fit_prolif, data=patient_annotation, title="Overall Survival", risk.table=TRUE))
-# good looking one
-current_plot <- ggsurvplot(fit_prolif, data=patient_annotation,
-                           palette=c("#26828E", "#FDE725"),
-                           title=paste0("Overall Survival (", overall_survival_name, ")"), 
-                           xlab=paste0("Time (years)"),
-                           censor.shape=124, censor.size=3,
-                           pval=TRUE, pval.coord=c(0,0.1),
-                           surv.median.line="hv",
-                           risk.table=TRUE,
-                           risk.table.fontsize = 4,
-                           tables.theme = theme_survminer(font.main = 14),
-                           legend="none", legend.title="Proliferation",
-                           legend.labs=c("Low", "High"))
-print(current_plot)
-current_filename <- "OS 5y GOBO.png" # GOBO
-current_filename <- "OS 5y SCANB.png" # SCAN-B
-ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
-
-
-# FOR TCGA
-
-patient_annotation <- patient_annotation_tcga
-patient_annotation$prolif.group.karl <- factor(patient_annotation$prolif.group.karl, levels=c("Low", "High"))
-groups.to.analyze <- levels(factor(patient_annotation$cancer.type))
-
-groups.to.analyze <- "LUAD"
-
-setwd("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Proliferation Karlsson/25th percentile/OS 5y/")
-
-for (type_to_analyze in groups.to.analyze) {
-  print(type_to_analyze)
-  type_subset <- subset(patient_annotation, cancer.type == type_to_analyze)
-  # make the object
-  overall_surv_object <- Surv(time=type_subset[[time_column_to_use]], 
-                              event=type_subset[[event_column_to_use]])
-  # separating estimates by TRU or NonTRU
-  fit_prolif <- survfit(overall_surv_object~prolif.group.karl, data=type_subset)
-  # testing by clams class
-  print(survdiff(Surv(type_subset[[time_column_to_use]], 
-                      type_subset[[event_column_to_use]])~type_subset$prolif.group.karl,))
-  # plot
-  # simple for comparing info and making sure names are correct
-  #print(ggsurvplot(fit_prolif, data=type_subset, title="Overall Survival", risk.table=TRUE))
-  # good looking one
-  current_plot <- ggsurvplot(fit_prolif, data=type_subset,
-                             palette=c("#26828E", "#FDE725"),
-                             title=paste0("Overall Survival (", type_to_analyze, ")"), 
-                             xlab=paste0("Time (years)"),
-                             censor.shape=124, censor.size=3,
-                             pval=TRUE, pval.coord=c(0,0.1),
-                             surv.median.line="hv",
-                             risk.table=TRUE,
-                             risk.table.fontsize = 4,
-                             tables.theme = theme_survminer(font.main = 14),
-                             legend="none", legend.title="Proliferation",
-                             legend.labs=c("Low", "High"))
-  print(current_plot)
-  current_filename <- paste0("OS 5y ", type_to_analyze, ".png")
-  ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
-}
+plot_ror_red_os(ror.groups.lmh, ror_labels, ror_colors)
+plot_ror_red_os(ror.groups.lm, ror_labels[1:2], ror_colors[1:2])
+plot_ror_red_os(ror.groups.mh, ror_labels[2:3], ror_colors[2:3])
+# plot_ror_red_os(ror.groups.hl, "Low", "#bcb9b9") # empty
