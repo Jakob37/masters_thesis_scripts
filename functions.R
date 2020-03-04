@@ -28,3 +28,23 @@ get_signature_value <- function(gene_symbol_column, sample_column, module, dup_r
   signature.value <- sum(as.integer(signature.rows))
   return(signature.value)
 }
+
+
+# (2) GET SAMPLES CLASS FROM AIMS RESULT  ---------------------------------------
+# for CLAMS, ROR SSPs, PAM50 SSPs
+get_samples_class_from_predictor_result <- function(aims_result) {
+  sample.class <- aims_result$cl[,]
+  sample.class <- data.frame(as.list(sample.class))
+  sample.class <- t(sample.class)
+  sample.class <- rownames_to_column(data.frame(sample.class), var = "sample.id")
+}
+
+
+# (3) GET SAMPLES PROB FROM AIMS RESULT  ---------------------------------------
+# for CLAMS, ROR SSPs, PAM50 SSPs
+get_samples_prob_from_predictor_result <- function(aims_result) {
+  sample.prob <- aims_result$prob[,]
+  sample.prob <- data.frame(as.list(sample.prob))
+  sample.prob <- t(sample.prob)
+  sample.prob <- rownames_to_column(data.frame(sample.prob), var = "sample.id")
+}
