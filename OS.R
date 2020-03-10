@@ -32,6 +32,7 @@ file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 # CLAMS RESULTS
 # ROR RESULTS
 # PAM50 RESULTS
+# PROLIFERATION RESULTS
 
 
 
@@ -83,7 +84,7 @@ patient_os_all_datasets <- censor_data(5, "y")
 patient_os_all_datasets <- censor_data(10, "y")
 
 
-# OVERALL SURVIVAL CLAMS  -------------------------------------------------
+# CLAMS  -------------------------------------------------
 
 setwd("/media/deboraholi/Data/LUND/9 THESIS/0_clams/OS 5y/")
 
@@ -225,7 +226,7 @@ for (a.group in groups.to.analyze) {
 # ROR  -------------------------------------------------
 # but do with relapse free instead of OS?
 
-setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/OS 5y/")
+setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/OS/")
 
 patients_os_ror <- left_join(patient_os_all_datasets, patient_annotation_ror,
                                 by = c("sample.id", "cancer.type", "dataset"))
@@ -234,7 +235,12 @@ time_column <- "OS.time.years.5y"
 event_column <- "OS.event.5y"
 time_type <- "years"
 
-# ROR reduced set
+time_column <- "OS.time.years.10y"
+event_column <- "OS.event.10y"
+time_type <- "years"
+plot_name <- "OS 10y"
+
+# ROR reduced set, all cancer types and datasets
 plot_ror_red_os <- function(ror_group, ror_labels, ror_colors) {
   for (a.group in ror_group) {
     print(a.group)
@@ -265,7 +271,7 @@ plot_ror_red_os <- function(ror_group, ror_labels, ror_colors) {
                                legend="none", legend.title="ROR",
                                legend.labs=ror_labels)
     print(current_plot)
-    current_filename <- paste0("OS 5y ", a.group, ".png")
+    current_filename <- paste0(plot_name, " ", a.group, ".png")
     ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
   }
 }
@@ -298,16 +304,17 @@ for (a.group in groups.to.analyze) {
 
 ror_labels <- c("Low", "Medium", "High")
 ror_colors <- c("#bcb9b9", "#6a6868", "#030303")
+# add ror_linetypes --------------
 
 plot_ror_red_os(ror.groups.lmh, ror_labels, ror_colors)
 plot_ror_red_os(ror.groups.lm, ror_labels[1:2], ror_colors[1:2])
 plot_ror_red_os(ror.groups.mh, ror_labels[2:3], ror_colors[2:3])
 # plot_ror_red_os(ror.groups.hl, "Low", "#bcb9b9") # empty
-
+plot_ror_red_os(c("BRCA_GOBO", "BRCA_SCAN-B", "BRCA_TCGA"), ror_labels, ror_colors)# just BRCA
 
 # PAM50  --------------------------------------------------
 
-setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/OS 5y/")
+setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/OS/")
 
 patients_os_pam50 <- left_join(patient_os_all_datasets, patient_annotation_pam50,
                              by = c("sample.id", "cancer.type", "dataset"))
@@ -322,6 +329,12 @@ groups.to.analyze <- levels(factor(brca_subset_os_pam50$groups.to.analyze))
 time_column <- "OS.time.years.5y"
 event_column <- "OS.event.5y"
 time_type <- "years"
+plot_name <- "OS 5y"
+
+time_column <- "OS.time.years.10y"
+event_column <- "OS.event.10y"
+time_type <- "years"
+plot_name <- "OS 10y"
 
 # reduced
 for (a.group in groups.to.analyze) {
@@ -352,7 +365,107 @@ for (a.group in groups.to.analyze) {
                              legend="none", legend.title="PAM50",
                              legend.labs=c("LumA", "LumB", "HER2", "Basal"))
   print(current_plot)
-  current_filename <- paste0("OS 5y ", a.group, ".png")
+  current_filename <- paste0(plot_name, " ", a.group, ".png")
   ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
 }
 
+# BRCA: CLAMS + ROR  --------------------------------------------------
+
+patients_os_clams_ror <- left_join(patient_os_all_datasets, patient_annotation_clams,
+                               by = c("sample.id", "cancer.type", "dataset"))
+patients_os_clams_ror <- left_join(patients_os_clams_ror, patient_annotation_ror,
+                                   by = c("sample.id", "cancer.type", "dataset"))
+
+groups.to.analyze <- subset(patients_os_clams_ror, cancer.type == "BRCA") %>% pull(groups.to.analyze) %>% unique() %>% as.character()
+
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
+plot_name <- "OS 5y CLAMS ROR"
+
+for (type_to_analyze in groups.to.analyze) {
+  print(type_to_analyze)
+  type_subset <- subset(patients_os_clams_ror, groups.to.analyze == type_to_analyze)
+  type_subset$clams.class <- factor(type_subset$clams.class, levels=c("TRU", "NonTRU"))
+  type_subset$ror.red.hl.class <- factor(type_subset$ror.red.hl.class, levels=c("Low", "Medium", "High"))
+  
+  # make the object
+  overall_surv_object <- Surv(time=type_subset[[time_column]], 
+                              event=type_subset[[event_column]])
+  # separating estimates by TRU or NonTRU and ROR
+  fit_clams <- survfit(overall_surv_object~clams.class+ror.red.hl.class, data=type_subset)
+  # testing by clams class and ROR
+  print(survdiff(Surv(type_subset[[time_column]], 
+                      type_subset[[event_column]])~type_subset$clams.class+type_subset$ror.red.hl.class,))
+  
+  # plot
+  # simple for comparing info and making sure names are correct
+  print(ggsurvplot(fit_clams, data=type_subset, title="Overall Survival", risk.table=TRUE))
+  # good looking one
+  current_plot <- ggsurvplot(fit_clams, data=type_subset,
+                             palette=c("darkorange1", "deepskyblue3", "deepskyblue2", "deepskyblue1"),
+                             title=paste0("Overall Survival (", type_to_analyze, ")"), 
+                             xlab=paste0("Time (", time_type, ")"),
+                             linetype=c(1,1,5,3),
+                             censor.shape=124, censor.size=3,
+                             pval=TRUE, pval.coord=c(0,0.1),
+                             surv.median.line="hv",
+                             risk.table=TRUE,
+                             risk.table.fontsize = 4,
+                             tables.theme = theme_survminer(font.main = 14),
+                             legend="none", legend.title="CLAMS x ROR",
+                             legend.labs=c("TRU x Low", "NonTRU x Low", "NonTRU x Medium", "NonTRU x High"))
+  print(current_plot)
+  current_filename <- paste0(plot_name, " ", type_to_analyze, ".png")
+  setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/OS/")
+  ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+}
+
+# BRCA: CLAMS + PAM50  --------------------------------------------------
+
+patients_os_clams_pam50 <- left_join(patient_os_all_datasets, patient_annotation_clams,
+                                   by = c("sample.id", "cancer.type", "dataset"))
+patients_os_clams_pam50 <- left_join(patients_os_clams_pam50, patient_annotation_pam50,
+                                   by = c("sample.id", "cancer.type", "dataset"))
+
+time_column <- "OS.time.years.5y"
+event_column <- "OS.event.5y"
+time_type <- "years"
+plot_name <- "OS 5y CLAMS PAM50"
+
+# not enough samples/groups to do by dataset if only TRU, so all BRCA together
+
+type_subset <- subset(patients_os_clams_pam50, cancer.type == "BRCA") %>% filter(clams.class == "TRU")
+type_subset$clams.class <- factor(type_subset$clams.class, levels=c("TRU", "NonTRU"))
+type_subset$pam50.red.class <- factor(type_subset$pam50.red.class, levels=c("LumA", "LumB", "Her2", "Basal"))
+
+# make the object
+overall_surv_object <- Surv(time=type_subset[[time_column]], 
+                            event=type_subset[[event_column]])
+# separating estimates by TRU or NonTRU and PAM50
+fit_clams <- survfit(overall_surv_object~clams.class+pam50.red.class, data=type_subset)
+# testing by clams class and PAM50
+print(survdiff(Surv(type_subset[[time_column]], 
+                    type_subset[[event_column]])~type_subset$clams.class+type_subset$pam50.red.class,))
+
+# plot
+# simple for comparing info and making sure names are correct
+print(ggsurvplot(fit_clams, data=type_subset, title="Overall Survival", risk.table=TRUE))
+# good looking one
+current_plot <- ggsurvplot(fit_clams, data=type_subset,
+                           palette=c("darkorange1", "darkorange2", "darkorange3"),
+                           title=paste0("Overall Survival (BRCA)"),
+                           xlab=paste0("Time (", time_type, ")"),
+                           linetype=c(1,4,3),
+                           censor.shape=124, censor.size=3,
+                           pval=TRUE, pval.coord=c(0,0.1),
+                           surv.median.line="hv",
+                           risk.table=TRUE,
+                           risk.table.fontsize = 4,
+                           tables.theme = theme_survminer(font.main = 14),
+                           legend="none", legend.title="CLAMS x PAM50",
+                           legend.labs=c("TRU x LumA", "TRU x HER2", "TRU x Basal"))
+print(current_plot)
+current_filename <- paste0(plot_name, " TRU BRCA", ".png")
+setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/OS/")
+ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
