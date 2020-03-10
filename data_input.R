@@ -131,6 +131,7 @@ patient_ids_all_datasets$sample.id <- as.character(patient_ids_all_datasets$samp
 # (1B) OS FROM ANNOTATION   -----------------------------------
 
 patient_os_all_datasets <- read.csv("/media/deboraholi/Data/LUND/9 THESIS/data/all_samples_os.csv")
+patient_os_all_datasets$sample.id <- as.character(patient_os_all_datasets$sample.id)
 
 
 # (2) GENE TABLE INFORMATION  ---------------------------------
@@ -142,13 +143,14 @@ setwd(config$input_file_paths$directory)
 gene_table_gobo <- loadRData(config$input_file_paths$gene_table)
 
 # SCAN-B
-gene_table_scanb <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/JVCs.predictors_Helena/Gene.ID.Entrez.Rdata") # from Helena (JVC.predictor)
+# use 'org.Hs.eg.db'
 
 # TCGA
-setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
-config <- yaml.load_file("config_alltcga.yml")
-setwd(config$input_file_paths$directory)
-gene_table_tcga <- fData(readRDS(config$input_file_paths$rds))
+# use 'org.Hs.eg.db'
+# setwd("/media/deboraholi/Data/LUND/9 THESIS/src") # not run
+# config <- yaml.load_file("config_alltcga.yml") # not run
+# setwd(config$input_file_paths$directory) # not run
+# gene_table_tcga <- fData(readRDS(config$input_file_paths$rds)) # not run
 
 rm(config)
 
@@ -188,14 +190,13 @@ source("/media/deboraholi/Data/LUND/9 THESIS/src/plots_names.R")
 patient_annotation_clams <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv")
 
 
-
 # PROLIFERATION ANALYSIS RESULTS  -----------------------------------
 
-# list of BLAH genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
+# list of genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
 prolif_fred_genes_in_common <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/modules/prolif_fred_genes_in_common.txt")
 prolif_fred_genes_in_common <- prolif_fred_genes_in_common$V1
 
-# list of BLAH genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
+# list of genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
 prolif_karl_genes_in_common <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/modules/prolif_karl_genes_in_common.txt")
 prolif_karl_genes_in_common <- prolif_karl_genes_in_common$V1
 
@@ -213,6 +214,12 @@ immune_genes_in_common <- immune_genes_in_common$V1
 # table of patient ids and immune signature values (sum of ranks) for all 3 datasets
 # sum = sum FPKM when gene symbol appears more than once, max = get the highest value when gene symbol is there more than once
 patient_annotation_immune <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/2_immune/immune_all_samples.csv")
+
+
+
+# GENERAL FUNCTIONS  ---------------------------------------------------
+
+source('/media/deboraholi/Data/LUND/9 THESIS/src/functions.R')
 
 
 
@@ -236,18 +243,21 @@ ror.all.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/R
 
 patient_annotation_ror <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_all_samples.csv")
 
+load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_results.RData") # all results
 
 
 # PAM50 SSPs  -------------------------------------------------------------
 
 # reduced version
-load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run9564Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_22.selRules.AIMS.GS.RData")
+pam50.red.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run9564Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_22.selRules.AIMS.GS.RData")
 
 # complete version
-load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run19081Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
+pam50.all.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run19081Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
 
 
 
 # PAM50 RESULTS  ------------------------------------------------------------
 
 patient_annotation_pam50 <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/pam50_all_samples.csv")
+
+load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/pam50_results.RData")
