@@ -16,6 +16,7 @@ gene_table_info:
   
 patient_annotation_info:
   sample_column_name: "sample_id"
+  cancer_type_column: "cancer.type"
   overall_survival_time_column_name: "OS.time"
   overall_survival_time_column_unit_table: "days"
   overall_survival_time_column_unit_desired: "years"
