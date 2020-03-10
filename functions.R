@@ -48,3 +48,43 @@ get_samples_prob_from_predictor_result <- function(aims_result) {
   sample.prob <- t(sample.prob)
   sample.prob <- rownames_to_column(data.frame(sample.prob), var = "sample.id")
 }
+
+
+# (4) SSPs functions  ---------------------------------------
+
+get.dup.genes.count <- function(list_with_duplicates) {
+  uniques <- unique(list_with_duplicates)
+  dup_genes <- c()
+  for (i in 1:length(uniques)) {
+    gene.count <- str_count(string=list_with_duplicates, pattern=regex(paste0("^", uniques[i], "$"))) %>% sum()
+    dup_genes <- c(dup_genes, gene.count)
+  }
+  return(dup_genes)
+}
+
+
+# get all genes from the rules
+get.all.pairs.genes <- function(all.pairs){
+  genes <- c()
+  for (cp in strsplit(all.pairs,"<")){
+    genes <- c(genes,cp)
+  }
+  return(genes)
+}
+# get only the unique ones
+get.unique.genes <- function(all.pairs){
+  genes <- get.all.pairs.genes(all.pairs)
+  unique(genes)
+}
+# count in how many rules a gene appears in
+get.rules.per.gene <- function(all.pairs) {
+  rules.genes <- get.all.pairs.genes(all.pairs)
+  unique.genes <- get.unique.genes(all.pairs)
+  genes_in_rules <- c()
+  for (i in 1:length(unique.genes)) {
+    rule.count <- str_count(string=rules.genes, pattern=regex(paste0(unique.genes[i], "$"))) %>% sum()
+    genes_in_rules <- c(genes_in_rules, rule.count)
+  }
+  return(genes_in_rules)
+}
+
