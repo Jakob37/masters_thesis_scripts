@@ -19,7 +19,7 @@ while (dev.cur()>1) dev.off()
 
 library(tidyverse)
 library(yaml)
-
+library(org.Hs.eg.db)
 
 
 # INPUT DATA FROM data_input.R  ----------------------------------
@@ -30,7 +30,7 @@ file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 # (1A) ONLY PATIENT IDS FROM ANNOTATION
 # (2) GENE TABLE INFORMATION
 # (3) GEX
-
+# functions.R
 
 
 # CLAMS ANALYSIS  -----------------------------------
@@ -40,9 +40,6 @@ library(e1071)
 
 
 # GOBO
-
-setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
-config <- yaml.load_file("config_brca_gobo.yml")
 
 # Create a gene symbol list from the reporter ids present in the gex_matrix  
 gene_symbols_gobo <- gex_matrix_gobo[,1:2]
@@ -55,8 +52,13 @@ rm(gene_table_gobo)
 # Rename gex_matrix rows with gene symbols instead of reporter ids
 row.names(gex_matrix_gobo) <- gene_symbols_gobo
 
+# get CLAMS genes and filter gex_matrix for only those genes
+clams_genes <- get.all.pairs.genes(CLAMSmodel$all.pairs)
+gex_matrix_gobo_clams <- gex_matrix_gobo[clams_genes,]
+
 # run CLAMS predictor
-clams_result_gobo <- applyCLAMS(gex_matrix_gobo, gene_symbols_gobo)
+clams_result_gobo <- applyCLAMS(gex_matrix_gobo_clams, row.names(gex_matrix_gobo_clams))
+
 # extract the classification result from CLAMS
 clams.class <- clams_result_gobo$cl[,]
 clams.class <- data.frame(as.list(clams.class))
@@ -69,19 +71,18 @@ rm(gex_matrix_gobo)
 rm(gene_symbols_gobo)
 
 
-
 # SCAN-B
 
-setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
-config <- yaml.load_file("config_brca_scanb.yml")
-
 # Create a gene symbol list from gex_matrix
-gene_symbols_scanb <- gex_matrix_scanb[,1:2]
-gene_symbols_scanb <- rownames_to_column(data.frame(gex_matrix_scanb), var = "geneSymbol")
-gene_symbols_scanb <- gene_symbols_scanb$geneSymbol
+gene_symbols_scanb <- row.names(gex_matrix_scanb)
+
+# get CLAMS genes and filter gex_matrix for only those genes
+clams_genes <- get.all.pairs.genes(CLAMSmodel$all.pairs)
+gex_matrix_scanb_clams <- gex_matrix_scanb[clams_genes,]
 
 # run CLAMS predictor
-clams_result_scanb <- applyCLAMS(gex_matrix_scanb, gene_symbols_scanb)
+clams_result_scanb <- applyCLAMS(gex_matrix_scanb_clams, row.names(gex_matrix_scanb_clams))
+
 # extract the classification result from CLAMS
 clams.class <- clams_result_scanb$cl[,]
 clams.class <- data.frame(as.list(clams.class))
@@ -96,16 +97,10 @@ rm(gene_symbols_scanb)
 
 # TCGA
 
-setwd("/media/deboraholi/Data/LUND/9 THESIS/src")
-config <- yaml.load_file("config_alltcga.yml")
-
-# Create a gene symbol list from the reporter ids present in the gex_matrix  
-gene_symbols_tcga <- gex_matrix_tcga[,1:2]
-gene_symbols_tcga <- rownames_to_column(data.frame(gene_symbols_tcga), var = "reporterId")
-gene_symbols_tcga <- left_join(gene_symbols_tcga, gene_table_tcga[,c("ENSG", "SYMBOL")], by=c("reporterId" = "ENSG"))
-gene_symbols_tcga <- gene_symbols_tcga$SYMBOL
-
-rm(gene_table_tcga)
+# Create an entrez id list from the ensembl ids present in the gex_matrix
+ensembl_ids_tcga <- row.names(gex_matrix_tcga)
+gene_symbols_tcga <- mapIds(org.Hs.eg.db, ensembl_ids_tcga, 'SYMBOL', 'ENSEMBL')
+gene_symbols_tcga <- unname(gene_symbols_tcga)
 
 # Replace VEGFD for FIGF
 gene_symbols_tcga <- as.list(gene_symbols_tcga)
@@ -114,37 +109,27 @@ gene_symbols_tcga <- rapply(gene_symbols_tcga, function(x) ifelse(x=="VEGFD","FI
 # Rename gex_matrix rows with gene symbols instead of reporter ids
 row.names(gex_matrix_tcga) <- gene_symbols_tcga
 
-rm(gene_symbols_tcga)
+# get CLAMS genes and filter gex_matrix for only those genes
+clams_genes <- get.all.pairs.genes(CLAMSmodel$all.pairs)
+gex_matrix_tcga_clams <- gex_matrix_tcga[clams_genes,]
 
-# run CLAMS predictor for subsets of each cancer type
-cancer_types <- levels(factor(patient_annotation_tcga$cancer.type))
-for (cancer_type in cancer_types) {
-  
-  # Subset data according to cancer type
-  print(cancer_type)
-  sample_list <- subset(patient_annotation_tcga, cancer.type == cancer_type) %>% pull(sample_id)
-  col_num <- which(colnames(gex_matrix_tcga) %in% sample_list)
-  new_gex_matrix <- gex_matrix_tcga[,c(col_num)]
-  gene_symbols <- row.names(new_gex_matrix)
-  
-  # run CLAMS predictor
-  clams_result <- applyCLAMS(new_gex_matrix, gene_symbols)
-  # extract the classification result from CLAMS
-  clams.class <- clams_result$cl[,]
-  
-  clams.class <- data.frame(as.list(clams.class))
-  clams.class <- t(clams.class)
-  clams.class <- rownames_to_column(data.frame(clams.class), var = "sample.id")
-  
-  if (exists("clams_class_tcga")) {
-    clams_class_tcga <- bind_rows(clams_class_tcga, clams.class) } else {
-      clams_class_tcga <- clams.class
-    }
-  
-  rm(new_gex_matrix)
-}
+# run CLAMS predictor
+clams_result_tcga <- applyCLAMS(gex_matrix_tcga_clams, row.names(gex_matrix_tcga_clams))
+
+# extract the classification result from CLAMS
+clams.class <- clams_result_tcga$cl[,]
+clams.class <- data.frame(as.list(clams.class))
+clams.class <- t(clams.class)
+clams.class <- rownames_to_column(data.frame(clams.class), var = "sample.id")
 
 clams_class_tcga <- inner_join(patient_ids_all_datasets, clams_class_tcga, by="sample.id")
+
+# for only BRCA
+brca_tcga_subset_samples <- subset(patient_ids_all_datasets, dataset == 'TCGA' & cancer.type == "BRCA") %>% pull(sample.id)
+brca_tcga_gex_matrix <- gex_matrix_tcga_filtered[,brca_tcga_subset_samples]
+
+clams_result_brca_tcga <- applyCLAMS(brca_tcga_gex_matrix, row.names(brca_tcga_gex_matrix))
+
 
 rm(patient_annotation_tcga)
 rm(gex_matrix_tcga)
@@ -165,12 +150,9 @@ patient_annotation_clams$clams.class <- factor(patient_annotation_clams$clams.cl
 write.csv(patient_annotation_clams, "/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv", row.names=FALSE)
 
 
-  
-# CHANGE FROM HERE ------------------
-
-
-
+# NEEDS TO BE CHANGED FROM HERE ------  
 # GENERAL VISUALIZATION OF PATIENT ANNOTATION INFORMATION BY CLAMS CLASS (ONE TYPE IN DATASET) --------------------------------------------------
+
 
 # Barplots
 if (length(config$see_variables_by_clams$barplot) > 0) {
