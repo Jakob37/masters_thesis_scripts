@@ -53,9 +53,17 @@ rm(gene_table_gobo)
 # Rename gex_matrix rows with entrez ids instead of reporter ids
 row.names(gex_matrix_gobo) <- entrez_ids_gobo
 
+# see which genes from predictor are in gex_matrix and filter matrix to keep only those
+red_genes <- get.all.pairs.genes(pam50.red.aims.gs$all.pairs)
+all_genes <- get.all.pairs.genes(pam50.all.aims.gs$all.pairs)
+red_genes_in_gex <- intersect(red_genes, entrez_ids_gobo)
+all_genes_in_gex <- intersect(all_genes, entrez_ids_gobo)
+gex_matrix_gobo_red <- gex_matrix_gobo[red_genes_in_gex,]
+gex_matrix_gobo_all <- gex_matrix_gobo[all_genes_in_gex,]
+
 # run PAM50 predictor
-pam50_red_result_gobo <- applyAIMS(gex_matrix_gobo, entrez_ids_gobo, pam50.red.aims.gs)
-pam50_all_result_gobo <- applyAIMS(gex_matrix_gobo, entrez_ids_gobo, pam50.all.aims.gs)
+pam50_red_result_gobo <- applyAIMS(gex_matrix_gobo_red, row.names(gex_matrix_gobo_red), pam50.red.aims.gs)
+pam50_all_result_gobo <- applyAIMS(gex_matrix_gobo_all, row.names(gex_matrix_gobo_all), pam50.all.aims.gs)
 
 # extract the classification per sample from the predictor result, rename column to reflect aims.gs
 pam50_red_class_gobo <- get_samples_class_from_predictor_result(pam50_red_result_gobo)
@@ -85,9 +93,17 @@ entrez_ids_scanb <- paste0("e",entrez_ids_scanb)
 # Rename gex_matrix rows with entrez ids instead of gene symbols
 row.names(gex_matrix_scanb) <- entrez_ids_scanb
 
+# see which genes from predictor are in gex_matrix and filter matrix to keep only those
+red_genes <- get.all.pairs.genes(pam50.red.aims.gs$all.pairs)
+all_genes <- get.all.pairs.genes(pam50.all.aims.gs$all.pairs)
+red_genes_in_gex <- intersect(red_genes, entrez_ids_scanb)
+all_genes_in_gex <- intersect(all_genes, entrez_ids_scanb)
+gex_matrix_scanb_red <- gex_matrix_scanb[red_genes_in_gex,]
+gex_matrix_scanb_all <- gex_matrix_scanb[all_genes_in_gex,]
+
 # run PAM50 predictor
-pam50_red_result_scanb <- applyAIMS(gex_matrix_scanb, entrez_ids_scanb, pam50.red.aims.gs)
-pam50_all_result_scanb <- applyAIMS(gex_matrix_scanb, entrez_ids_scanb, pam50.all.aims.gs)
+pam50_red_result_scanb <- applyAIMS(gex_matrix_scanb_red, row.names(gex_matrix_scanb_red), pam50.red.aims.gs)
+pam50_all_result_scanb <- applyAIMS(gex_matrix_scanb_all, row.names(gex_matrix_scanb_all), pam50.all.aims.gs)
 
 # extract the classification per sample from the predictor result, rename column to reflect aims.gs
 pam50_red_class_scanb <- get_samples_class_from_predictor_result(pam50_red_result_scanb)
@@ -139,8 +155,7 @@ pam50_class_tcga <- inner_join(pam50_class_tcga, pam50_all_class_tcga, by="sampl
 
 # run ROR predictor for only BRCA
 brca_tcga_subset_samples <- subset(patient_ids_all_datasets, dataset == 'TCGA' & cancer.type == "BRCA") %>% pull(sample.id)
-col_num <- which(colnames(gex_matrix_tcga) %in% brca_tcga_subset_samples)
-brca_tcga_gex_matrix <- gex_matrix_tcga[,c(col_num)]
+brca_tcga_gex_matrix <- gex_matrix_tcga[,brca_tcga_subset_samples]
 entrez_ids_tcga_brca <- row.names(brca_tcga_gex_matrix)
 
 pam50_red_result_brca_tcga <- applyAIMS(brca_tcga_gex_matrix, entrez_ids_tcga_brca, pam50.red.aims.gs)
@@ -172,6 +187,47 @@ write.csv(patient_annotation_pam50, "/media/deboraholi/Data/LUND/9 THESIS/3_brca
 # CLAMS RESULTS
 
 # Pancancer  -------
+
+patient_annotation_pam50 <- patient_annotation_pam50 %>% mutate(group.to.analyze = paste(cancer.type, dataset, sep="_"))
+table(patient_annotation_pam50$group.to.analyze, patient_annotation_pam50$pam50.red.class) %>% addmargins() %>% print(zero.print=".")
+#             Basal  Her2  LumA  LumB   Sum
+# ACC_TCGA       19    59     .     .    78
+# BLCA_TCGA     113   291     .     .   404
+# BRCA_GOBO     223   791   615   252  1881
+# BRCA_SCAN-B   355   472  1842   851  3520
+# BRCA_TCGA     187   224   255   406  1072
+# CESC_TCGA     174   127     .     .   301
+# CHOL_TCGA       1    35     .     .    36
+# COAD_TCGA       5   271     .     .   276
+# DLBC_TCGA      45     3     .     .    48
+# ESCA_TCGA      80    79     .     .   159
+# GBM_TCGA      102    50     .     .   152
+# HNSC_TCGA     458    36     .     .   494
+# KICH_TCGA       2    62     .     .    64
+# KIRC_TCGA      29   483     .     .   512
+# KIRP_TCGA       5   278     .     .   283
+# LGG_TCGA      291   217     .     .   508
+# LIHC_TCGA       7   361     .     .   368
+# LUAD_TCGA      19   488     .     .   507
+# LUSC_TCGA     356   130     .     .   486
+# MESO_TCGA      61    25     .     .    86
+# OV_TCGA        32   202     .     .   234
+# PAAD_TCGA       8   147     .     .   155
+# PCPG_TCGA      40   137     .     .   177
+# PRAD_TCGA       .   360   130     1   491
+# READ_TCGA       3    86     .     .    89
+# SARC_TCGA     190    64     .     .   254
+# SKCM_TCGA      91    12     .     .   103
+# STAD_TCGA      38   323     1     .   362
+# TGCT_TCGA     111    22     .     .   133
+# THCA_TCGA       2   495     .     .   497
+# THYM_TCGA     100    19     .     .   119
+# UCEC_TCGA      11   159     1     .   171
+# UCS_TCGA       38    18     .     .    56
+# UVM_TCGA       26    54     .     .    80
+# Sum          3222  6580  2844  1510 14156
+
+
 # compare classification between predictors
 table(patient_annotation_pam50$pam50.red.class, 
         patient_annotation_pam50$pam50.all.class, useNA='ifany') %>% print(zero.print=".")
