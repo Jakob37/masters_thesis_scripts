@@ -15,6 +15,7 @@
 library(tidyverse)
 library(yaml)
 library(Biobase)
+library(org.Hs.eg.db)
 
 
 # LOAD FUNCTIONS  -------------------------------------------------
@@ -143,7 +144,8 @@ setwd(config$input_file_paths$directory)
 gene_table_gobo <- loadRData(config$input_file_paths$gene_table)
 
 # SCAN-B
-# use 'org.Hs.eg.db'
+# already with gene symbols, use nothing for CLAMS
+# use 'org.Hs.eg.db' for entrez ids
 
 # TCGA
 # use 'org.Hs.eg.db'
@@ -189,6 +191,9 @@ source("/media/deboraholi/Data/LUND/9 THESIS/src/plots_names.R")
 
 patient_annotation_clams <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv")
 
+load("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_result.RData")
+
+load("/media/deboraholi/Data/LUND/9 THESIS/data/ssps_gex/gex_filtered_clams.RData")
 
 # PROLIFERATION ANALYSIS RESULTS  -----------------------------------
 
@@ -217,7 +222,7 @@ patient_annotation_immune <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/2_im
 
 
 
-# GENERAL FUNCTIONS  ---------------------------------------------------
+# FUNCTIONS  ---------------------------------------------------
 
 source('/media/deboraholi/Data/LUND/9 THESIS/src/functions.R')
 
@@ -237,6 +242,9 @@ ror.red.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/R
 # complete version
 ror.all.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/Training_Run19081Genes_noNorm_SSP.scaled.ROR.tot.asT0.c005.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
 
+# gex filtered to keep only the genes used by both ROR SSPs
+load("/media/deboraholi/Data/LUND/9 THESIS/data/ssps_gex/gex_filtered_ror.RData")
+
 
 
 # ROR RESULTS  ------------------------------------------------------------
@@ -246,6 +254,7 @@ patient_annotation_ror <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_
 load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/ror_results.RData") # all results
 
 
+
 # PAM50 SSPs  -------------------------------------------------------------
 
 # reduced version
@@ -253,6 +262,9 @@ pam50.red.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps
 
 # complete version
 pam50.all.aims.gs <- loadRData("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/Training_Run19081Genes_noNorm_SSP.PAM50subtype4Most.Fcc15_5x5foldCV.num.rules.50_21.selRules.AIMS.GS.RData")
+
+# gex filtered to keep only the genes used by both PAM50 SSPs
+load("/media/deboraholi/Data/LUND/9 THESIS/data/ssps_gex/gex_filtered_pam50.RData")
 
 
 
