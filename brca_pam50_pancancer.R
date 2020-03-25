@@ -399,7 +399,7 @@ patient_annotation_pam50_clams_prolif <- left_join(patient_annotation_pam50_clam
                                                  by = c("sample.id", "cancer.type", "dataset"))
 patient_annotation_pam50_clams_prolif$pam50.red.class <- factor(patient_annotation_pam50_clams_prolif$pam50.red.class,
                                                                  levels=c("Basal", "Her2", "LumB", "LumA"))
-pam.names <- c("Basal", "HER2", "LumB", "LumA")
+pam.names <- c("Basal", "HER2", "Luminal B", "Luminal A")
 names(pam.names) <- c("Basal", "Her2", "LumB", "LumA")
 
 # pancancer
@@ -424,10 +424,24 @@ patient_annotation_pam50_clams_prolif %>%
 # BRCA only
 brca_pam50_prolif <- patient_annotation_pam50_clams_prolif %>% filter(cancer.type == "BRCA")
 
+sample_count <- group_by(brca_pam50_prolif, pam50.red.class, clams.class) %>% tally()
+# pam50.red.class clams.class     n
+# Basal           NonTRU        757
+# Basal           TRU             8
+# Her2            NonTRU       1449
+# Her2            TRU            38
+# LumB            NonTRU       1508
+# LumB            TRU             1
+# LumA            NonTRU       1996
+# LumA            TRU           716
+
+brca_pam50_prolif <- group_by(brca_pam50_prolif, pam50.red.class, clams.class) %>% mutate(red.clams=n())
+tru_under_5 <- subset(brca_pam50_prolif, red.clams<5)
+
 brca_pam50_prolif %>%
   # filter(pam50.red.class == "LumA") %>%
   ggplot(aes(x=clams.class, y=karl.value, fill=clams.class)) +
-  geom_boxplot(position="identity", outlier.size = 0.3) +
+  geom_boxplot(data=subset(brca_pam50_prolif, red.clams>5), position="identity", outlier.size = 0.3) +
   theme_minimal() +
   scale_fill_manual(values=c("deepskyblue3", "darkorange1"), name="CLAMS") +
   labs(y = "Cell proliferation", x = NULL) +
@@ -437,9 +451,11 @@ brca_pam50_prolif %>%
         axis.ticks.x.bottom=element_line(color="grey50")) +
   scale_y_continuous(breaks = c(3e+05, 6.5e+05), labels = c('Lower', 'Higher')) +
   facet_wrap(~pam50.red.class, labeller = labeller(pam50.red.class = pam.names), ncol=4) +
-  ggtitle("BRCA only, all datasets")
+  ggtitle("BRCA only, all datasets") +
+  geom_point(data=tru_under_5, size = 0.5, colour="darkorange1")
 
-# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/prolif/PAM50_brca_red_clams.png", width=6, height=3.5, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/prolif/PAM50_brca_red_clams.png", width=6, height=4, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/prolif/PAM50_brca_red_clams.pdf", width=6, height=4)
 
 # by dataset
 brca_gobo_pam50_prolif <- brca_pam50_prolif %>% filter(dataset == "GOBO")
@@ -531,3 +547,56 @@ mean(all_prob_scanb$sample.prob) # 0.995342
 all_prob_tcga <- get_samples_prob_from_predictor_result(pam50_all_result_tcga)
 hist(all_prob_tcga$sample.prob)
 mean(all_prob_tcga$sample.prob) # 0.9908023
+
+
+# BRCA only, GOBO original ------
+
+patient_annotation_pam50_clams <- left_join(patient_annotation_pam50, patient_annotation_clams, 
+                                            by=c("sample.id", "cancer.type", "dataset"))
+patient_annotation_pam50_clams_prolif <- left_join(patient_annotation_pam50_clams,
+                                                   patient_annotation_prolif,
+                                                   by = c("sample.id", "cancer.type", "dataset"))
+patient_annotation_pam50_clams_prolif$pam50.gobo.original.rest.red <- 
+  factor(patient_annotation_pam50_clams_prolif$pam50.gobo.original.rest.red,
+                      levels=c("Basal", "Her2", "LumB", "LumA", "Normal-like", "Unclassified"))
+
+brca_subset <- subset(patient_annotation_pam50_clams_prolif, cancer.type == "BRCA")
+
+table(brca_subset$clams.class, brca_subset$pam50.gobo.original.rest.red)
+#         Basal Her2 LumB LumA Normal-like Unclassified
+# NonTRU   837  919 1727 1935         198           94
+# TRU        9   17    1  627         106            3
+
+pam.names <- c("Basal", "HER2-enriched", "Luminal B", "Luminal A", "Normal-like", "Unclassified")
+names(pam.names) <- c("Basal", "Her2", "LumB", "LumA", "Normal-like", "Unclassified")
+
+
+brca_subset <- group_by(brca_subset, pam50.gobo.original.rest.red, clams.class) %>% mutate(red.clams=n())
+tru_under_5 <- subset(brca_subset, red.clams<5)
+
+brca_subset %>%
+  ggplot(aes(x=clams.class, y=karl.value, fill=clams.class)) +
+  geom_boxplot(data=subset(brca_subset, red.clams>5), position="identity", outlier.size = 0.3) +
+  theme_minimal() +
+  scale_fill_manual(values=c("deepskyblue3", "darkorange1"), name="CLAMS") +
+  labs(y = "Cell proliferation", x = NULL) +
+  theme(axis.line.x = element_line(color="grey50"), axis.line.y = element_line(color="grey50"),
+        legend.position = "none",
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+        axis.ticks.x.bottom=element_line(color="grey50")) +
+  scale_y_continuous(breaks = c(3e+05, 6.5e+05), labels = c('Lower', 'Higher')) +
+  facet_wrap(~pam50.gobo.original.rest.red, labeller = labeller(pam50.gobo.original.rest.red = pam.names), ncol=6) +
+  ggtitle("BRCA only, all datasets") +
+  geom_point(data=tru_under_5, size = 0.5, colour="darkorange1")
+
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/prolif/PAM50_brca_red_clams_gobo_original.png", width=8, height=4, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/prolif/PAM50_brca_red_clams_gobo_original.pdf", width=8, height=4)
+
+
+
+
+
+
+
+
+
