@@ -67,6 +67,8 @@ populate_matrix <- function(empty_matrix, original_gex_matrix, list_of_list_rule
 
 # CLAMS  ---------------------------------------------
 
+library(CLAMS)
+
 clams_rules_tru <- CLAMSmodel$selected.pairs.list$bronchioid
 clams_rules_nontru <- CLAMSmodel$selected.pairs.list$nonbronchioid
 
@@ -174,6 +176,78 @@ luad_tcga_heatmap <- pheatmap(mat = luad_tcga_matrix_to_plot,
                               annotation_names_col = FALSE,
                               color = c("white", "darkorange1", "deepskyblue3"),
                               main = "TCGA LUAD, CLAMS"
+)
+
+# only TRU rules
+luad_tcga_empty_matrix <- create_empty_matrix(luad_tcga_gex_matrix, clams_rules_tru)
+luad_tcga_matrix_to_plot <- populate_matrix(luad_tcga_empty_matrix, luad_tcga_gex_matrix, clams_rules_tru)
+luad_tcga_matrix_to_plot[luad_tcga_matrix_to_plot > 1] <- 1
+
+# create class annotation
+row_annotation_tcga <- patient_annotation_clams %>% filter(dataset == "TCGA" & cancer.type == "LUAD")
+row_annotation_tcga <- row_annotation_tcga[c("sample.id", "clams.class")]
+row_annotation_tcga$clams.class <- factor(row_annotation_tcga$clams.class, c("TRU", "NonTRU"))
+row_annotation_tcga <- row_annotation_tcga %>% arrange(clams.class)
+row_annotation_tcga <- column_to_rownames(row_annotation_tcga, var = "sample.id")
+
+luad_tcga_matrix_to_plot <- luad_tcga_matrix_to_plot[rownames(row_annotation_tcga), ]
+
+luad_tcga_heatmap <- pheatmap(mat = luad_tcga_matrix_to_plot, 
+                              border_color = NA, 
+                              show_rownames = FALSE,
+                              show_colnames = TRUE,
+                              gaps_row = c(152),
+                              cluster_rows = FALSE, cluster_cols = FALSE,
+                              annotation_row = row_annotation_tcga,
+                              annotation_colors = annotation_colors,
+                              annotation_names_row = FALSE,
+                              annotation_names_col = FALSE,
+                              color = c("white", "grey70"),
+                              main = "TCGA LUAD, CLAMS"
+)
+
+# ALL BRCA together
+
+brca_tcga_subset_samples <- subset(patient_annotation_clams, dataset == 'TCGA' & cancer.type == "BRCA") %>% pull(sample.id)
+brca_tcga_gex_matrix <- gex_matrix_tcga_clams[,brca_tcga_subset_samples]
+
+brca_tcga_empty_matrix <- create_empty_matrix(brca_tcga_gex_matrix, clams_rules_tru)
+brca_tcga_matrix_to_plot <- populate_matrix(brca_tcga_empty_matrix, brca_tcga_gex_matrix, clams_rules_tru)
+brca_tcga_matrix_to_plot[brca_tcga_matrix_to_plot > 1] <- 1
+
+gobo_empty_matrix <- create_empty_matrix(gex_matrix_gobo_clams, clams_rules_tru)
+gobo_matrix_to_plot <- populate_matrix(gobo_empty_matrix, gex_matrix_gobo_clams, clams_rules_tru)
+gobo_matrix_to_plot[gobo_matrix_to_plot > 1] <- 1
+
+scanb_empty_matrix <- create_empty_matrix(gex_matrix_scanb_clams, clams_rules_tru)
+scanb_matrix_to_plot <- populate_matrix(scanb_empty_matrix, gex_matrix_scanb_clams, clams_rules_tru)
+scanb_matrix_to_plot[scanb_matrix_to_plot > 1] <- 1
+
+all_brca_matrix_to_plot <- rbind(brca_tcga_matrix_to_plot, gobo_matrix_to_plot, scanb_matrix_to_plot)
+
+# create class annotation
+row_annotation <- patient_annotation_clams %>% filter(cancer.type == "BRCA")
+row_annotation <- row_annotation[c("sample.id", "clams.class", "dataset")]
+row_annotation$clams.class <- factor(row_annotation$clams.class, c("TRU", "NonTRU"))
+row_annotation <- row_annotation %>% arrange(clams.class)
+row_annotation$dataset <- factor(row_annotation$dataset, c("TCGA", "GOBO", "SCAN-B"))
+row_annotation <- row_annotation %>% arrange(dataset)
+row_annotation <- row_annotation[-3]
+row_annotation <- column_to_rownames(row_annotation, var = "sample.id")
+
+all_brca_matrix_to_plot <- all_brca_matrix_to_plot[rownames(row_annotation), ]
+
+all_brca_heatmap <- pheatmap(mat = all_brca_matrix_to_plot, 
+                              border_color = NA, 
+                              show_rownames = FALSE,
+                             show_colnames = TRUE,
+                              gaps_row = c(1072,2953),
+                              cluster_rows = FALSE, cluster_cols = FALSE,
+                              annotation_row = row_annotation,
+                              annotation_colors = annotation_colors,
+                              annotation_names_row = FALSE,
+                              color = c("white", "grey70"),
+                              main = "ALL BRCA, CLAMS"
 )
 
 
