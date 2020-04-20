@@ -150,6 +150,23 @@ patient_annotation_clams$clams.class <- factor(patient_annotation_clams$clams.cl
 write.csv(patient_annotation_clams, "/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_all_samples.csv", row.names=FALSE)
 
 
+
+## LIHC  ---------------------------------------------------
+
+# load lihc_subtypes_huang_2020
+
+lihc <- subset(patient_annotation_tcga, cancer.type == 'LIHC')
+lihc_subtypes_huang_2020 <- left_join(lihc, lihc_subtypes_huang_2020, by='sample_barcode')
+lihc_subtypes_huang_2020 <- left_join(lihc_subtypes_huang_2020, patient_annotation_clams[c("sample.id", "clams.class")], 
+                                      by=c('sample_id'='sample.id'))
+
+addmargins(table(lihc_subtypes_huang_2020$clams.class, lihc_subtypes_huang_2020$subtype, useNA='ifany'))
+#          1   2   3   4 <NA> Sum
+# NonTRU  77 101  95  55    2 330
+# TRU      9   1  25   3    0  38
+# Sum     86 102 120  58    2 368
+
+
 # NEEDS TO BE CHANGED FROM HERE ------  
 # GENERAL VISUALIZATION OF PATIENT ANNOTATION INFORMATION BY CLAMS CLASS (ONE TYPE IN DATASET) --------------------------------------------------
 
