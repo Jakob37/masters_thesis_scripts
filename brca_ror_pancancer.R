@@ -483,10 +483,18 @@ patient_annotation_ror_clams_prolif %>%
 # ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/prolif/ROR_red_clams.png", width=5, height=4, dpi=300)
 
 
-# with PROLIFERATION, BRCA only
+# with PROLIFERATION, BRCA only, exclude GOBO
 
-brca_ror_prolif <- patient_annotation_ror_clams_prolif %>% filter(cancer.type == "BRCA")
-brca_ror_prolif %>%
+brca_ror_prolif_nogobo <- patient_annotation_ror_clams_prolif %>% filter(cancer.type == "BRCA" & dataset != "GOBO")
+
+sample_count <- group_by(brca_ror_prolif_nogobo, ror.red.hl.class, clams.class) %>% tally()
+# ror.red.hl.class clams.class     n
+# High             NonTRU       1659
+# Low              NonTRU       1267
+# Low              TRU           563
+# Medium           NonTRU       1103
+
+brca_ror_prolif_nogobo %>%
   # filter(ror.red.hl.class == "Low") %>%
   ggplot(aes(x=clams.class, y=karl.value, fill=clams.class)) +
   geom_boxplot(position="identity", outlier.size = 0.3) +
@@ -499,10 +507,13 @@ brca_ror_prolif %>%
         axis.ticks.x.bottom=element_line(color="grey50")) +
   scale_y_continuous(breaks = c(3e+05, 6.5e+05), labels = c('Lower', 'Higher')) +
   facet_wrap(~ror.red.hl.class, labeller = labeller(ror.red.hl.class = ror.names)) +
-  ggtitle("BRCA only, all datasets")
+  ggtitle("BRCA only, no GOBO, reduced SSP")
+    
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/prolif/ROR_red_clams_BRCA_nogobo.png", width=5, height=4, dpi=300)
+# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/prolif/ROR_red_clams_BRCA_nogobo.pdf", width=5, height=4)
 
-# ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/prolif/ROR_red_clams_BRCA.png", width=5, height=4, dpi=300)
-
+  
+  
 
 # per dataset
 # GOBO
@@ -561,242 +572,3 @@ brca_tcga_ror_prolif %>%
   ggtitle("BRCA (TCGA)")
 
 # ggsave("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/ROR/prolif/ROR_red_clams_BRCA_TCGA.png", width=5, height=4, dpi=300)
-
-
-# TRUE/FALSE PER RULE FOR ALL SAMPLES  ---------------------
-
-# needs ror_results.RData
-
-library(pheatmap)
-
-# create a list of colors by low/medium/high
-ann_colors = list(
-  ror.class = c(c005="#d46a6a", c010="#d46a6a", c015="#d46a6a", c020="#d46a6a",
-                c025="#d46a6a", c030="#d46a6a", c035="#d46a6a", c040="#d46a6a",
-                c045="#aa3939", c050="#aa3939", c055="#aa3939", c060="#aa3939",
-                c065="#550000", c070="#550000", c075="#550000", c080="#550000",
-                c085="#550000", c090="#550000")
-)
-# by actual class
-ann_colors2 = list(
-  ror.class = c(c005="#440154FF", c010="#481769FF", c015="#472A7AFF", c020="#433D84FF",
-                c025="#3D4E8AFF", c030="#355E8DFF", c035="#2E6D8EFF", c040="#297B8EFF",
-                c045="#23898EFF", c050="#1F978BFF", c055="#21A585FF", c060="#2EB37CFF",
-                c065="#46C06FFF", c070="#65CB5EFF", c075="#89D548FF", c080="#B0DD2FFF",
-                c085="#D8E219FF", c090="#FDE725FF") # from viridis(18), purple lowest, yellow highest
-)
-
-# Reduced
-# GOBO
-# extract rules matrix from ssp result objects and transpose it
-rules_matrix <- t(ror_red_result_gobo[["rules.matrix"]])
-# extract the classification for annotation, assumed they are in the same order as matrix
-classif <- ror_red_result_gobo[["cl"]]
-# move to column to rename classification column
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "50")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c085", "c090"))
-# rename matrix rows with sample names (needed for pheatmap)
-rownames(rules_matrix) <- classif$sample.id
-# arrange samples by classification to split heatmap later
-classif <- classif %>% arrange(ror.class)
-# set it back as rownames (needed for heatmap)
-classif <- column_to_rownames(classif, var="sample.id")
-# rearrange rules matrix in the same order as the samples arranged by ROR class
-rules_matrix <- rules_matrix[rownames(classif), ]
-# to see where to place the gaps
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(437,524,884,1091,1502,1617,1655,1665,1666),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "GOBO, reduced set, samples (rows) x gene rules (columns)"
-)
-
-# SCAN-B
-rules_matrix <- ror_red_result_scanb[["rules.matrix"]]
-rules_matrix <- t(rules_matrix)
-classif <- ror_red_result_scanb[["cl"]]
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "50")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c015", "c020", "c025", "c030",
-                                       "c035", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c075", "c080",
-                                       "c085", "c090"))
-
-rownames(rules_matrix) <- classif$sample.id
-
-classif <- classif %>% arrange(ror.class)
-classif <- column_to_rownames(classif, var="sample.id")
-
-rules_matrix <- rules_matrix[rownames(classif), ]
-
-# to see where to place the gaps
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(1213,1215,1230,1237,1421,1567,
-                                     1669,1873,2042,2298,2516,2662,
-                                     2849,2926,2973,2978),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "SCAN-B, reduced set, samples (rows) x gene rules (columns)"
-)
-
-# TCGA
-rules_matrix <- ror_red_result_brca_tcga[["rules.matrix"]]
-rules_matrix <- t(rules_matrix)
-classif <- ror_red_result_brca_tcga[["cl"]]
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "50")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c010", "c015", "c020", "c025", "c030",
-                                       "c035", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c075", "c080",
-                                       "c085", "c090"))
-
-rownames(rules_matrix) <- classif$sample.id
-
-classif <- classif %>% arrange(ror.class)
-classif <- column_to_rownames(classif, var="sample.id")
-
-rules_matrix <- rules_matrix[rownames(classif), ]
-
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(113,115,121,125,161,200,260,
-                                     351,417,471,516,540,544,585),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "TCGA BRCA, reduced set, samples (rows) x gene rules (columns)"
-)
-  
-
-# Full set
-# GOBO
-# extract rules matrix from ssp result objects and transpose it
-rules_matrix <- t(ror_all_result_gobo[["rules.matrix"]])
-# extract the classification for annotation, assumed they are in the same order as matrix
-classif <- ror_all_result_gobo[["cl"]]
-# move to column to rename classification column
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "21")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c010", "c015", "c020", "c025", "c030",
-                                       "c035", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c075", "c080",
-                                       "c085", "c090"))
-# rename matrix rows with sample names (needed for pheatmap)
-rownames(rules_matrix) <- classif$sample.id
-# arrange samples by classification to split heatmap later
-classif <- classif %>% arrange(ror.class)
-# set it back as rownames (needed for heatmap)
-classif <- column_to_rownames(classif, var="sample.id")
-# rearrange rules matrix in the same order as the samples arranged by ROR class
-rules_matrix <- rules_matrix[rownames(classif), ]
-# to see where to place the gaps
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(507,558,717,802,1310,1349,1576,1623,1634,1661,1673),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "GOBO, full set, samples (rows) x gene rules (columns)"
-)
-
-# SCAN-B
-rules_matrix <- t(ror_all_result_scanb[["rules.matrix"]])
-classif <- ror_all_result_scanb[["cl"]]
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "21")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c010", "c015", "c020", "c025", "c030",
-                                       "c035", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c075", "c080",
-                                       "c085", "c090"))
-
-rownames(rules_matrix) <- classif$sample.id
-
-classif <- classif %>% arrange(ror.class)
-classif <- column_to_rownames(classif, var="sample.id")
-
-rules_matrix <- rules_matrix[rownames(classif), ]
-
-# to see where to place the gaps
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "SCAN-B, full set, samples (rows) x gene rules (columns)"
-)
-
-# TCGA
-rules_matrix <- t(ror_all_result_brca_tcga[["rules.matrix"]])
-classif <- ror_all_result_brca_tcga[["cl"]]
-classif <- rownames_to_column(as.data.frame(classif), var="sample.id")
-classif <- classif %>% rename(ror.class = "21")
-classif$ror.class <- factor(classif$ror.class, 
-                            levels = c("c005", "c010", "c015", "c020", "c025", "c030",
-                                       "c035", "c040", "c045", "c050", "c055",
-                                       "c060", "c065", "c070", "c075", "c080",
-                                       "c085", "c090"))
-
-rownames(rules_matrix) <- classif$sample.id
-
-classif <- classif %>% arrange(ror.class)
-classif <- column_to_rownames(classif, var="sample.id")
-
-rules_matrix <- rules_matrix[rownames(classif), ]
-
-classif %>% group_by(ror.class) %>% tally()
-
-the_heatmap <- pheatmap(mat = rules_matrix, 
-                        border_color = NA, 
-                        show_rownames = FALSE,
-                        show_colnames = FALSE,
-                        gaps_row = c(),
-                        cluster_rows = FALSE, cluster_cols = FALSE,
-                        annotation_row = classif,
-                        annotation_colors = ann_colors,
-                        annotation_names_row = FALSE,
-                        color = c("grey80", "grey60"),
-                        main = "TCGA BRCA, full set, samples (rows) x gene rules (columns)"
-)
-
