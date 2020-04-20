@@ -1,7 +1,7 @@
 # Masters in Bioinformatics - thesis scripts
 
-Scripts created during my Masters thesis to run CLAMS (prognosis predictor developed for lung adenocarcinoma) pan-cancer in RStudio running R version 3.6.3.  
-Different analyses use different scripts. Irrespect of what you want to analyze, you start by running parts of data_input.R to load the data.  
+Scripts created during my Masters thesis at Lund University: "Pan-cancer validation of a lung-adenocarcinoma-derived gene-expression-based prognostic predictor". It basically involves running the predictor named CLAMS on tumor samples from 32 different cancer types and analysing the results.  
+Different analyses use different scripts, all written in RStudio running R version 3.6.3. Irrespect of what you want to analyze, you start by running parts of data_input.R to load the data.  
 The only script intended to be sourced is functions.R. For all others, run code line by line or in chunks according to computer capacity.  
 The following packages are needed in some or all scripts: Biobase v2.46.0, CLAMS (still not released to the public - Liljedahl et al., submitted), e1071 v1.7-3, org.Hs.eg.db v3.10.0, pheatmap v1.0.12, survminer v0.4.6, survival v3.1-11, tidyverse v1.3.0, viridisLite v0.3.0, yaml v2.2.1.  
 
