@@ -8,13 +8,13 @@
 #
 #
 
-# CLEAR ENVIRONMENT ------------------------------------------------------------------------------------------------------------------------
+# CLEAR ENVIRONMENT  -------------------------------------------
 
 rm(list=ls())
 while (dev.cur()>1) dev.off()
 
 
-# LOAD GENERAL PACKAGES ----------------------------------------------------------------------------------------------------------------
+# LOAD GENERAL PACKAGES  ---------------------------------------
 
 library(tidyverse)
 library(survival)
@@ -26,7 +26,7 @@ library(viridisLite)
 
 file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 
-# don't source or it crashes...
+# don't source the entire file or it crashes...
 # (1B) OS FROM ANNOTATION - always
 # if needed:
 # CLAMS RESULTS
@@ -35,14 +35,14 @@ file.edit("/media/deboraholi/Data/LUND/9 THESIS/src/data_input.R")
 # PROLIFERATION RESULTS
 
 
-
+# create a new column so you can do anything by cancer type and dataset combined
 patient_os_all_datasets <- patient_os_all_datasets %>% mutate(groups.to.analyze = paste(cancer.type, dataset, sep="_"))
 patient_os_all_datasets$groups.to.analyze <- factor(patient_os_all_datasets$groups.to.analyze)
 groups.to.analyze <- levels(patient_os_all_datasets$groups.to.analyze)
 
 # GET ALL TIME INFO TO SAME TYPE  (M/Y)  --------------------------
 
-# mutate patient OS info to months and years
+# mutate patient OS info from original months/years to months and years
 patient_os_all_datasets$OS.time.type <- as.character(patient_os_all_datasets$OS.time.type)
 patient_os_all_datasets <- patient_os_all_datasets %>%
                               mutate(OS.time.years = case_when(OS.time.type == 'days' ~ (OS.time / 365.2425),
@@ -80,7 +80,9 @@ censor_data <- function (time_to_censor, unit_to_censor) {
   return(patient_os_all_datasets)
 }               
 
+# censor at 5 years
 patient_os_all_datasets <- censor_data(5, "y")
+# censor at 10 years
 patient_os_all_datasets <- censor_data(10, "y")
 
 
@@ -88,9 +90,11 @@ patient_os_all_datasets <- censor_data(10, "y")
 
 setwd("/media/deboraholi/Data/LUND/9 THESIS/0_clams/OS 5y/")
 
+# join OS table and CLAMS classification table
 patients_os_clams <- left_join(patient_os_all_datasets, patient_annotation_clams,
                                by = c("sample.id", "cancer.type", "dataset"))
 
+# get only cancer types that CLAMS divided into two groups
 groups.to.analyze.clams <- subset(patients_os_clams, clams.class == "TRU") %>% pull(groups.to.analyze) %>% unique() %>% as.character()
 
 time_column <- "OS.time.years.5y"
@@ -336,7 +340,7 @@ event_column <- "OS.event.10y"
 time_type <- "years"
 plot_name <- "OS 10y"
 
-# reduced
+# reduced set
 for (a.group in groups.to.analyze) {
   print(a.group)
   group_subset <- subset(brca_subset_os_pam50, groups.to.analyze == a.group)
@@ -469,3 +473,37 @@ print(current_plot)
 current_filename <- paste0(plot_name, " TRU BRCA", ".png")
 setwd("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/OS/")
 ggsave(file=current_filename, print(current_plot), width=6.68, height=6.1, dpi=300)
+
+
+# with GOBO original, just Normal-like
+type_subset <- subset(patients_os_clams_pam50, cancer.type == "BRCA")
+type_subset$clams.class <- factor(type_subset$clams.class, levels=c("TRU", "NonTRU"))
+type_subset <- type_subset %>% filter(pam50.gobo.original.rest.red == 'Normal-like')
+
+# make the object
+overall_surv_object <- Surv(time=type_subset[[time_column]], 
+                            event=type_subset[[event_column]])
+# separating estimates by TRU or NonTRU
+fit_clams <- survfit(overall_surv_object~clams.class, data=type_subset)
+# testing by clams class
+print(survdiff(Surv(type_subset[[time_column]], 
+                    type_subset[[event_column]])~type_subset$clams.class,))
+
+# plot
+# simple for comparing info and making sure names are correct
+print(ggsurvplot(fit_clams, data=type_subset, title="Overall Survival", risk.table=TRUE))
+
+# good looking one
+current_plot <- ggsurvplot(fit_clams, data=type_subset,
+                           palette=c("darkorange1", "deepskyblue3"),
+                           title=paste0("Overall Survival (GOBO Normal-like)"), 
+                           xlab=paste0("Time (", time_type, ")"),
+                           censor.shape=124, censor.size=3,
+                           pval=TRUE, pval.coord=c(0,0.1),
+                           surv.median.line="hv",
+                           risk.table=TRUE,
+                           risk.table.fontsize = 4,
+                           tables.theme = theme_survminer(font.main = 14),
+                           legend="none", legend.title="CLAMS",
+                           legend.labs=c("TRU", "NonTRU"))
+print(current_plot)
