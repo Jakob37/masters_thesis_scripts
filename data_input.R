@@ -48,7 +48,7 @@ config <- yaml.load_file("config_alltcga.yml")
 setwd(config$input_file_paths$directory)
 patient_annotation_tcga <- pData(readRDS(config$input_file_paths$rds))
 
-
+      
 # (1A) to create a table with ids, dataset and cancer type for all datasets
 # GOBO
 patient_annotation_gobo <- patient_annotation_gobo["SampleID"]
@@ -195,6 +195,7 @@ load("/media/deboraholi/Data/LUND/9 THESIS/0_clams/clams_result.RData")
 
 load("/media/deboraholi/Data/LUND/9 THESIS/data/ssps_gex/gex_filtered_clams.RData")
 
+
 # PROLIFERATION ANALYSIS RESULTS  -----------------------------------
 
 # list of genes from proliferation module that are present in all 3 datasets (GOBO, SCAN-B, TCGA)
@@ -273,3 +274,15 @@ load("/media/deboraholi/Data/LUND/9 THESIS/data/ssps_gex/gex_filtered_pam50.RDat
 patient_annotation_pam50 <- read_csv("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/pam50_all_samples.csv")
 
 load("/media/deboraholi/Data/LUND/9 THESIS/3_brca_ssps/PAM50/pam50_results.RData")
+
+
+
+# LIHC SUBTYPES  -------------------------------------------------------------
+
+lihc_subtypes_huang_2020 <- read.delim("/media/deboraholi/Data/LUND/9 THESIS/data/lihc/CNMF-cluster-4.txt")
+lihc_subtypes_huang_2020 <- lihc_subtypes_huang_2020 %>% rename('sample_barcode' = 'X')
+lihc_subtypes_huang_2020 <- lihc_subtypes_huang_2020 %>% rename('subtype' = 'type')
+lihc_subtypes_huang_2020$subtype <- factor(lihc_subtypes_huang_2020$subtype)
+
+
+# TREATMENT PREDICTION  ------------------------------------------------------
