@@ -279,10 +279,14 @@ prolif_summary_tru_non <- merge(x=prolif_summary_nontru, y=prolif_summary_tru,
 rm(prolif_summary_nontru)
 rm(prolif_summary_tru)
 
-patient_annotation_prolif_clams %>%
-  mutate(groups.to.analyze = fct_reorder(groups.to.analyze, karl.value, .fun='median')) %>%
+patient_annotation_prolif_clams <- group_by(patient_annotation_prolif_clams, groups.to.analyze, clams.class) %>% mutate(n=n())
+above_5 <- subset(patient_annotation_prolif_clams, n>5)
+tru_under_5 <- subset(patient_annotation_prolif_clams, n<5)
+
+to_plot %>%
+  #mutate(groups.to.analyze = fct_reorder(groups.to.analyze, karl.value, .fun='median')) %>%
   ggplot(aes(x=reorder(groups.to.analyze, karl.value), y=karl.value, fill=clams.class)) +
-  geom_boxplot(position="identity", outlier.size = 0.3) +
+  geom_boxplot(data=above_5, position="identity", outlier.size = 0.3) +
   theme_minimal() +
   scale_fill_manual(values=c("deepskyblue3", "darkorange1"), name="CLAMS") +
   labs(data=patient_annotation_prolif_clams, y = "Cell proliferation", x = NULL) +
@@ -297,7 +301,8 @@ patient_annotation_prolif_clams %>%
   annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=7.3e+05, label=prolif_summary_tru_non$nontru, size=3, color="deepskyblue3", angle=90) +
   annotate("text", x=34.5, y=7.32e+05, label="= n", size=3, color="deepskyblue3", hjust=0) +
   annotate("text", x=29.5, y=2.22e+05, label="= n", size=3, color="darkorange1", hjust=0) +
-  annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=2.2e+05, label=prolif_summary_tru_non$tru, size=3, color="darkorange1", angle=90)
+  annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=2.2e+05, label=prolif_summary_tru_non$tru, size=3, color="darkorange1", angle=90) +
+  geom_point(data=tru_under_5, size = 0.4, colour="darkorange1")
 
 ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/CLAMS/prolif_karl_clams.png", width=9.3, height=5, dpi=300)
 ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/CLAMS/prolif_karl_clams.pdf", width=9.3, height=5)
@@ -305,9 +310,9 @@ ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/CLAMS/prol
 
 # boxplot, outlier color
 patient_annotation_prolif_clams %>%
-  mutate(groups.to.analyze = fct_reorder(groups.to.analyze, karl.value, .fun='median')) %>%
+  #mutate(groups.to.analyze = fct_reorder(groups.to.analyze, karl.value, .fun='median')) %>%
   ggplot(aes(x=reorder(groups.to.analyze, karl.value), y=karl.value, col=clams.class)) +
-  geom_boxplot(position="identity", outlier.size = 0.3, outlier.color = NULL) +
+  geom_boxplot(data=above_5, position="identity", outlier.size = 0.3, outlier.color = NULL) +
   theme_minimal() +
   scale_color_manual(values=c("deepskyblue3", "darkorange1"), name="CLAMS") +
   labs(data=patient_annotation_prolif_clams, y = "Cell proliferation", x = NULL) +
@@ -322,7 +327,8 @@ patient_annotation_prolif_clams %>%
   annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=7.3e+05, label=prolif_summary_tru_non$nontru, size=3, color="deepskyblue3", angle=90) +
   annotate("text", x=34.5, y=7.32e+05, label="= n", size=3, color="deepskyblue3", hjust=0) +
   annotate("text", x=29.5, y=2.22e+05, label="= n", size=3, color="darkorange1", hjust=0) +
-  annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=2.2e+05, label=prolif_summary_tru_non$tru, size=3, color="darkorange1", angle=90)
+  annotate("text", x=prolif_summary_tru_non$groups.to.analyze, y=2.2e+05, label=prolif_summary_tru_non$tru, size=3, color="darkorange1", angle=90) +
+  geom_point(data=tru_under_5, size = 0.4, colour="darkorange1")
 
 ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/CLAMS/prolif_karl_clams_outlier.pdf", width=9.3, height=5)
 
@@ -461,3 +467,8 @@ patient_annotation_prolif_karl_median %>%
 
 ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/prolif_karl_lines.png", width=9.3, height=5, dpi=300)
 ggsave("/media/deboraholi/Data/LUND/9 THESIS/1_proliferation/Karlsson/prolif_karl_lines.pdf", width=9.3, height=5)
+
+
+# STATISTICS  --------------------------------------------
+
+
