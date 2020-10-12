@@ -1,5 +1,7 @@
 # Masters in Bioinformatics - thesis scripts
 
+Hello Deborah!
+
 Scripts created during my Masters thesis at Lund University: "Pan-cancer validation of a lung-adenocarcinoma-derived gene-expression-based prognostic predictor". It basically involves running the predictor named CLAMS on tumor samples from 32 different cancer types and analysing the results.  
 Different analyses use different scripts, all written in RStudio running R version 3.6.3. Irrespect of what you want to analyze, you start by running parts of data_input.R to load the data.  
 The only script intended to be sourced is functions.R. For all others, run code line by line or in chunks according to computer capacity.  
